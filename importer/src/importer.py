@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 import requests
 from pydantic import BaseModel, Field
+import schedule
 
 from langchain.tools import StructuredTool
 from langchain.agents import initialize_agent, AgentType
@@ -381,75 +382,96 @@ def run_for_chunk(mcp_cmd: str, source_id: str, chunk_id: str, source_url: str, 
 #   Main – full ETL cycle
 # ====================================
 
-def main():
-    # 1) Bootstrap: wait for Paperless, Neo4j, Ollama
-    wait_for_http(PAPERLESS_URL, timeout=600)
-
-    # Resolve Neo4j host/port from URL first, then env fallbacks
+def resolve_neo4j_host_port():
+    """
+    Resolve Neo4j host and port from the environment variables or defaults.
+    """
     host_port = _neo4j_host_port_from_url(NEO4J_URL) if NEO4J_URL else None
-    nh, np = host_port if host_port else (NEO4J_HOST, NEO4J_PORT)
-    wait_for_neo4j(nh, np, timeout=600)
+    return host_port or (NEO4J_HOST, NEO4J_PORT)
 
+
+def bootstrap_services():
+    """
+    Bootstrap and wait for required services: Paperless, Neo4j, and Ollama.
+    """
+    wait_for_http(PAPERLESS_URL, timeout=600)
+    nh, np = resolve_neo4j_host_port()
+    wait_for_neo4j(nh, np, timeout=600)
     wait_for_http(f"{OLLAMA_URL}/api/tags", timeout=600)
-    # Token loading (if not already done)
     _ = paperless_headers()
 
-    # 2) Iterate over Paperless documents
+
+def process_document(doc):
+    """
+    Process a single document: extract text, chunk, and run the agent.
+    """
+    doc_id = int(doc.get("id", 0))
+    if doc_id <= STATE.get("last_id", 0):
+        return
+
+    text = extract_text(doc)
+    if not text:
+        STATE["last_id"] = doc_id
+        STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
+        return
+
+    h = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    if STATE["hashes"].get(str(doc_id)) == h:
+        STATE["last_id"] = doc_id
+        STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
+        return
+
+    chunks = chunk_text(text, 5000)
+    for ci, ch in enumerate(chunks):
+        source_id = str(doc_id)
+        chunk_id = f"c{ci+1}"
+        source_url = str(doc.get("download_url") or "")
+
+        try:
+            run_for_chunk(MEMORY_MCP_CMD, source_id, chunk_id, source_url, ch)
+        except Exception as exc:
+            print(f"[WARN] Agent/MCP error doc {doc_id} {chunk_id}: {exc}", flush=True)
+
+        if str(environ.get("OBSIDIAN_EXPORT", False)).lower() in {"1", "true", "yes"}:
+            try:
+                obsidian_write(doc, ci, ch)
+            except Exception as exc:
+                print(f"[WARN] Obsidian write error: {exc}", flush=True)
+
+    STATE["hashes"][str(doc_id)] = h
+    STATE["last_id"] = doc_id
+    with contextlib.suppress(Exception):
+        STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
+
+
+def main():
+    bootstrap_services()
     for doc in paperless_iter():
         try:
-            doc_id = int(doc["id"])
-        except Exception:
-            # if no ID, skip
-            continue
+            process_document(doc)
+        except Exception as e:
+            print(f"[ERROR] Failed to process document: {e}", flush=True)
 
-        if doc_id <= STATE.get("last_id", 0):
-            continue
 
-        text = extract_text(doc)
-        if not text:
-            STATE["last_id"] = doc_id
-            STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
-            continue
+def schedule_importer():
+    """
+    Schedule the main function to run periodically based on SCHEDULE_TIME (default: 5 minutes).
+    """
+    schedule_time = int(os.getenv("SCHEDULE_TIME", "5"))  # Time in minutes
+    schedule.every(schedule_time).minutes.do(main)
 
-        # Idempotency: hash
-        h = hashlib.sha256(text.encode("utf-8")).hexdigest()
-        if STATE["hashes"].get(str(doc_id)) == h:
-            STATE["last_id"] = doc_id
-            STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
-            continue
-
-        chunks = chunk_text(text, 5000)
-        for ci, ch in enumerate(chunks):
-            source_id = str(doc_id)
-            chunk_id = f"c{ci+1}"
-            source_url = str(doc.get("download_url") or "")
-
-            try:
-                run_for_chunk(MEMORY_MCP_CMD, source_id, chunk_id, source_url, ch)
-            except Exception as exc:
-                print(f"[WARN] Agent/MCP error doc {doc_id} {chunk_id}: {exc}", flush=True)
-
-            # optional export
-            if str(environ.get("OBSIDIAN_EXPORT", False)).lower() in {
-                "1",
-                "true",
-                "yes",
-            }:
-                try:
-                    obsidian_write(doc, ci, ch)
-                except Exception as exc:
-                    print(f"[WARN] Obsidian write error: {exc}", flush=True)
-
-        # save state
-        STATE["hashes"][str(doc_id)] = h
-        STATE["last_id"] = doc_id
-        with contextlib.suppress(Exception):
-            STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 
 if __name__ == "__main__":
     try:
+        # Run the first import immediately
         main()
+
+        # Start the scheduler
+        schedule_importer()
     except KeyboardInterrupt:
         print("\nInterrupted.", flush=True)
         sys.exit(130)
