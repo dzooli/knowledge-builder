@@ -23,10 +23,6 @@ from langchain.agents import initialize_agent, AgentType
 from langchain_community.chat_models import ChatOllama
 
 
-# =========================
-#   Environment settings
-# =========================
-
 PAPERLESS_URL: str = os.getenv("PAPERLESS_URL", "http://paperless:8000")
 PAPERLESS_TOKEN: Optional[str] = os.getenv("PAPERLESS_TOKEN")
 PAPERLESS_TOKEN_FILE: Optional[str] = os.getenv("PAPERLESS_TOKEN_FILE")
@@ -56,6 +52,15 @@ if STATE_PATH.exists():
 
 
 def _neo4j_host_port_from_url(url: str) -> Optional[tuple[str, int]]:
+    """
+    Parse a Neo4j connection URL and extract the host and port.
+
+    Args:
+        url: The Neo4j connection URL.
+
+    Returns:
+        A tuple containing the host and port if available, otherwise None.
+    """
     with contextlib.suppress(Exception):
         p = urlparse(url)
         if p.hostname:
@@ -99,6 +104,21 @@ def wait_for_paperless_token(timeout_seconds: int = 0) -> str:
 
 
 def wait_for_neo4j(host: str, port: int, timeout: int = 240):
+    """
+    Waits for a Neo4j database to become available at the specified host and port within a given
+    timeout. Continuously checks connectivity until either a successful connection is made
+    or the timeout period has elapsed. Logs the status during the wait process.
+
+    :param host: The hostname or IP address of Neo4j to connect to.
+    :type host: str
+    :param port: The port number on which Neo4j is listening.
+    :type port: int
+    :param timeout: The maximum time, in seconds, to wait for Neo4j to become available. Default
+                    is 240 seconds.
+    :type timeout: int, optional
+    :raises RuntimeError: If the Neo4j instance is not available within the timeout period.
+    :return: None
+    """
     logger.info(f"[bootstrap] Waiting for Neo4j at {host}:{port} ...")
     t0 = time.time()
     while time.time() - t0 < timeout:
@@ -112,6 +132,26 @@ def wait_for_neo4j(host: str, port: int, timeout: int = 240):
 
 
 def wait_for_http(url: str, timeout: int = 240):
+    """
+    Waits for an HTTP service at the given URL to become available, checking periodically
+    within a specified timeout period. The status of the HTTP service is considered
+    available if the server responds with a status code of 200.
+
+    This function will suppress errors during HTTP requests and retry every two seconds
+    until the service becomes available or the timeout is exceeded. If the timeout
+    is exceeded, a RuntimeError is raised indicating that the service is not available.
+
+    :param url: str
+        The target URL of the HTTP service to check for availability.
+    :param timeout: int
+        The maximum amount of time in seconds to wait for the HTTP service to become available.
+        Defaults to 240 seconds.
+    :return: None
+        The function returns None if the service is successfully detected as available within
+        the timeout period.
+    :raises RuntimeError:
+        Raised if the service does not become available within the specified timeout period.
+    """
     logger.info(f"[bootstrap] Waiting for HTTP service: {url}")
     t0 = time.time()
     while time.time() - t0 < timeout:
@@ -245,6 +285,21 @@ def chunk_text(t: str, max_chars: int = 5000) -> List[str]:
 
 
 def obsidian_write(doc: dict, idx: int, text: str):
+    """
+    Writes a Markdown file formatted for Obsidian, including metadata and content,
+    to a specified directory. Metadata includes information such as the document
+    title, creation date, source URL, unique identifier, and chunk index.
+
+    :param doc: A dictionary representing the document metadata. Expected keys are:
+        - id (str): Unique identifier for the document.
+        - title (str, optional): Title of the document.
+        - created (str, optional): Date when the document was created.
+        - download_url (str, optional): URL to the original document source.
+    :param idx: The index of the current chunk in the document. Used to create
+        a unique slug and filename.
+    :param text: The content of the chunk to be written into the Markdown file.
+    :return: None
+    """
     try:
         slug = f"{doc['id']}_c{idx+1}"
         meta = {
@@ -281,6 +336,19 @@ class ObservationsArgs(BaseModel):
 
 
 def build_tools(mcp: MCPClient) -> List[StructuredTool]:
+    """
+    Builds and returns a list of structured tools based on MCP tools available.
+
+    This function creates a collection of MCP tools by querying the MCP server for
+    available tools. Tools that are verified to exist on the MCP server are wrapped
+    with functionality to handle input and communicate with the MCP server for their
+    respective purposes, such as searching nodes, managing entities, and adding or
+    deleting observations.
+
+    :param mcp: An instance of the MCPClient used to communicate with the MCP server.
+    :return: A list of StructuredTool objects, each representing a specific MCP tool.
+    :rtype: List[StructuredTool]
+    """
     advertised = {t["name"] for t in mcp.tools_list().get("tools", [])}
     tools: List[StructuredTool] = []
 
