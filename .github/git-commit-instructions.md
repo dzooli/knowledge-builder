@@ -1,9 +1,9 @@
 ## Commit message rules
 
 - Use the conventional commit format: `[<issue-number>]:<type>(<scope>): <description>`
-- Determine the issue number from the branch name if possible. The issue number is like PROJECTKY-XXXX in the branch
+- Determine the issue number from the branch name if possible. The issue number is like PROJECTKEY-XXXX in the branch
   name.
-- Issue number is optional
+- Issue number is optional, do not include it if not derived from the branch name.
 - Scope: the affected module(s)
 - Types: feat, fix, docs, style, refactor, test, chore, perf
 - Keep the description concise (under 50 characters)
