@@ -349,7 +349,7 @@ def extract_text(doc: dict) -> str:
     return (doc.get("content") or "").strip()
 
 
-def chunk_text(t: str, max_chars: int = 5000) -> List[str]:
+def chunk_text(t: str, max_chars: int = CHUNK_SIZE) -> List[str]:
     return [t[i:i + max_chars] for i in range(0, len(t), max_chars)] if t else [""]
 
 
@@ -488,6 +488,13 @@ def bootstrap_services():
     _ = paperless_headers()
 
 
+def _extracted_from_prepare_document_work(doc_id):
+    STATE["last_id"] = doc_id
+    with contextlib.suppress(Exception):
+        STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
+    return None
+
+
 def prepare_document_work(doc: dict) -> Optional[DocumentWork]:
     """Prepare a document processing unit or return None if it should be skipped.
     - Skips when id <= last_id
@@ -510,16 +517,9 @@ def prepare_document_work(doc: dict) -> Optional[DocumentWork]:
     if STATE["hashes"].get(str(doc_id)) == h:
         return _extracted_from_prepare_document_work(doc_id)
 
-    chunks = chunk_text(text, CHUNK_SIZE)
+    chunks = chunk_text(text)
     source_url = str(doc.get("download_url") or "")
     return DocumentWork(doc_id=doc_id, source_url=source_url, chunks=chunks, text_hash=h, doc=doc)
-
-
-def _extracted_from_prepare_document_work(doc_id):
-    STATE["last_id"] = doc_id
-    with contextlib.suppress(Exception):
-        STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
-    return None
 
 
 def run_downstream_steps(work: DocumentWork) -> None:
