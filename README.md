@@ -5,8 +5,8 @@
 This project is an **automated ETL pipeline**: knowledge is extracted from documents OCR-ed by Paperless-ngx using the *
 *Ollama** LLM, then loaded into a **Neo4j** graph via the official **Neo4j Memory MCP** server. The loading is performed
 by a **LangChain Agent**; tool calls are **delegated to the LLM itself**. Optionally, the raw text can also be exported
-to an **Obsidian** vault. The importer now includes a **scheduler** for periodic execution and **verbose logging** using
-`loguru`.
+to an **Obsidian** vault. The importer now includes a **scheduler** for periodic execution, **graceful shutdown with no
+overlapping runs**, and **verbose logging** using `loguru`.
 
 ## ✨ Components
 
@@ -15,8 +15,8 @@ to an **Obsidian** vault. The importer now includes a **scheduler** for periodic
 - **Importer (LangChain Agent)** – Paperless → chunk → prompt → LLM → Memory MCP tool calls (STDIO) → Neo4j
 - **Neo4j** – graph database + web UI (Browser)
 - **Memory MCP server** – `mcp-neo4j-memory` (STDIO, full toolset)
-- **Scheduler** – Executes the importer periodically (default: every 5 minutes)
-- **Loguru Logging** – Thread-safe, rotating logs for better diagnostics
+- **Scheduler** – Executes the importer periodically (default: every 5 minutes), prevents overlapping runs
+- **Loguru Logging** – Thread-safe, rotating logs for better diagnostics (10 MB rotation)
 
 ## 📂 Directory Structure
 
@@ -27,7 +27,7 @@ to an **Obsidian** vault. The importer now includes a **scheduler** for periodic
         media/             # Paperless media
     importer/
       src/                 # Python source code
-        importer.py        # final Python script
+        importer.py        # main Python script
       Dockerfile
     modelfile/Modelfile    # Ollama model profile (temperature=0)
     bootstrap/             # Paperless token goes here
@@ -42,13 +42,29 @@ to an **Obsidian** vault. The importer now includes a **scheduler** for periodic
 
 ## 🚀 Quickstart
 
-1) **Start Neo4j (separate Compose)**
-   ```bash
-   cd neo4j-stack
-   docker compose up -d # Browser: http://localhost:7474 (user: neo4j, pass: testpass, set in neo4j-stack compose)
-   ```
+1) Start Neo4j (uses root .env)
 
-2) **Start KB stack (Paperless, Ollama, Importer)**
+   You have two equivalent options to ensure NEO4J_USERNAME/NEO4J_PASSWORD from the project root .env are used by
+   neo4j-stack:
+
+    - From the project root (recommended):
+
+      ```bash
+      docker compose --env-file ./.env -f neo4j-stack/docker-compose.yml up -d
+      ```
+
+    - Or from inside neo4j-stack passing the root .env explicitly:
+
+      ```bash
+      cd neo4j-stack
+      docker compose --env-file ../.env up -d
+      ```
+
+    - Neo4j UI will be available on: http://localhost:7474 (user: value of NEO4J_USERNAME; pass: value of
+      NEO4J_PASSWORD)
+
+2) Start KB stack (Paperless, Ollama, Importer)
+
    ```bash
    cd <PROJECT_ROOT>
    docker compose up -d --build
@@ -64,39 +80,41 @@ to an **Obsidian** vault. The importer now includes a **scheduler** for periodic
 
 ## 🔧 Configuration (key envs)
 
-- **Paperless**
+- Root .env (shared)
+
+      NEO4J_USERNAME=neo4j
+      NEO4J_PASSWORD=<SET IT>
+
+- Paperless
 
       PAPERLESS_ADMIN_USER=admin
-      PAPERLESS_ADMIN_PASSWORD=adminpass # (first start)
+      PAPERLESS_ADMIN_PASSWORD=<DEFAULT_AS_IN_PAPERLESS> # (first start)
       PAPERLESS_URL=http://paperless:8000
       PAPERLESS_TOKEN_FILE=/bootstrap/paperless_token.txt
 
-- **Neo4j (runs on host)**
+- Neo4j (importer connection)
 
       NEO4J_URL=bolt://host.docker.internal:7687
-      NEO4J_USERNAME=neo4j
-      NEO4J_PASSWORD=testpass
-      (duplicate variables also provided for compatibility: `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASS`)
+      # Compatibility also supported by importer: NEO4J_URI
 
-- **Ollama**
-    - Modelfile:
+- Ollama
 
-          FROM llama3.1:8b
-          PARAMETER temperature 0
+      # Profile name created by model init job
+      OLLAMA_MODEL=llama31-kb
 
-    - The `ollama-model-init` container handles pull + create, profile name: **llama31-kb**
+- Importer
 
-- **Importer**
-
-      MEMORY_MCP_CMD=mcp-neo4j-memory #  (STDIO default)
+      MEMORY_MCP_CMD=mcp-neo4j-memory
       STATE_PATH=/data/state.json
       VAULT_DIR=/data/obsidian
-      OBSIDIAN_EXPORT=true            # Optional if you want Obsidian export
-      SCHEDULE_TIME=5                 # Optional, schedule interval in minutes
+      OBSIDIAN_EXPORT=true
+      SCHEDULE_TIME=5
+      CHUNK_SIZE=5000
+      LOG_FILE=/data/importer.log
 
 - **Importer / pyproject.toml dependencies** (add if missing)
 
-      requests
+      httpx
       pydantic
       langchain
       langchain-community
@@ -116,8 +134,10 @@ to an **Obsidian** vault. The importer now includes a **scheduler** for periodic
     - `add_observations`, `delete_observations`
 5. For every created item, pass: `source_id`, `chunk_id`, `source_url`
 6. Optional: Obsidian export if enabled (`data/obsidian/`)
-7. **Scheduler**: Runs the importer periodically (default: every 5 minutes)
-8. **Logging**: Logs are written to `importer.log` with rotation after 10 MB.
+7. **Scheduler**: Runs the importer periodically (default: every 5 minutes) with no overlapping runs
+8. **Logging**: Logs are written to `importer.log` (rotation after 10 MB, retention 10 days, thread-safe). You can set
+   `LOG_FILE` (default `/data/importer.log`).
+9. **Graceful shutdown**: SIGINT/SIGTERM stop scheduling and finish the current run cleanly
 
 ## 🔍 Testing
 
@@ -125,8 +145,7 @@ to an **Obsidian** vault. The importer now includes a **scheduler** for periodic
 
       docker compose logs -f importer
 
-  On startup you will see: *Neo4j available*, MCP *tools/list*, then the ReAct agent steps and tool calls.
-
+  On startup, you will see: *Neo4j available*, MCP *tools/list*, then the ReAct agent steps and tool calls.
 
 - **MCP client binary** in the container:
 
