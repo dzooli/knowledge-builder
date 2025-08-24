@@ -8,7 +8,7 @@ dependencies = [
     "langchain-community>=0.3.27",
     "mcp-neo4j-memory>=0.3.0",
     "pydantic>=2.11.7",
-    "requests>=2.32.5",
+    "httpx>=0.28.1",
     "schedule>=1.2.0",
     "loguru>=0.7.0"
 ]
