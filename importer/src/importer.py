@@ -15,7 +15,7 @@ from typing import Optional, Dict, Any, List
 from urllib.parse import urlparse
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 import schedule
 from loguru import logger
 
@@ -53,6 +53,161 @@ if STATE_PATH.exists():
         STATE = json.loads(STATE_PATH.read_text(encoding="utf-8"))
     except Exception:
         pass
+
+
+# ====================================
+#   Prompt (user-prompt; no system)
+# ====================================
+
+PROMPT_TMPL = """You: You are a professional journalist and language researcher who is able to distill key information from various sources and detect
+relations between the observations and facts even if there are a time gaps between.
+Task: Based on the text below, BUILD KNOWLEDGE into the Neo4j-based memory graph using the AVAILABLE TOOLS
+(find_nodes, search_nodes, read_graph, create_entities, delete_entities, create_relations, delete_relations, add_observations, delete_observations).
+
+Rules:
+- First SEARCH (find_nodes / search_nodes / query), then UPSERT (delete+recreate), then OBSERVATION (with add_observations), 
+  just CREATE when not existing found (create_entities, add_observations and create_relations).
+- Every entity/relation/observation must carry: source_id="{SOURCE_ID}", chunk_id="{CHUNK_ID}", source_url="{SOURCE_URL}" (if relevant).
+- Do not duplicate: find_nodes → if exists, use it; otherwise create_entities.
+- Canonize names: e.g. "OTP Bank Nyrt." → "OTP Bank".
+- Date ISO: YYYY-MM-DD (if only year/month known, fill with 01). Money: value (number), unit (USD/HUF/EUR/$/Ft/€).
+- Relation examples, you can use other types if needed: offers, announces, acquires, releases, located_in, headquartered_in, founded_on, ceo_of, part_of,
+  depends_on, compatible_with, integrates_with, price_of, discounted_to, available_at, published_on, linked_to, cites,
+  authored_by, version_of, supersedes, fixes, affected_by, related_to, deprecated_by.
+- For every relation/observation add a short evidence snippet and confidence [0.0–1.0].
+- Keep calling tools as long as meaningful information can be extracted. Do not write explanations. If nothing more to do: write a single word: DONE.
+
+Useful patterns (guidelines, adjust to the schema expected by the tool):
+- create_entities: {"entities":[{"name":"…","type":"Organization","source_id":"{SOURCE_ID}","chunk_id":"{CHUNK_ID}"}]}
+- create_relations: {"relations":[{"subject":{"name":"…"},"predicate":"offers","object":{"name":"…"},"when":"2025-08-01","evidence":"…","confidence":0.8,"source_id":"{SOURCE_ID}","chunk_id":"{CHUNK_ID}"}]}
+- add_observations: {"observations":[{"entity":{"name":"…"},"text":"…","source_url":"{SOURCE_URL}","confidence":0.6,"source_id":"{SOURCE_ID}","chunk_id":"{CHUNK_ID}"}]}
+
+TEXT:
+<<<
+{TEXT}
+>>>
+
+"""
+
+
+class DocumentWork(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    doc_id: int = Field(..., description="Paperless document ID")
+    source_url: str = Field("", description="Original source download URL, may be empty")
+    chunks: List[str] = Field(default_factory=list, description="Chunks of extracted text")
+    text_hash: str = Field(..., description="SHA256 hash of the full text for idempotency")
+    doc: dict = Field(default_factory=dict, description="Original Paperless document payload")
+
+
+# ====================================
+#   LangChain Tool wrap – FULL toolset
+# ====================================
+
+class NodeQueryArgs(BaseModel):
+    query: dict = Field(..., description="Search conditions for find_nodes/search_nodes/read_graph.")
+
+
+class EntitiesArgs(BaseModel):
+    entities: list = Field(..., description="List of entities for create_entities/delete_entities.")
+
+
+class RelationsArgs(BaseModel):
+    relations: list = Field(..., description="List of relations for create_relations/delete_relations.")
+
+
+class ObservationsArgs(BaseModel):
+    observations: list = Field(..., description="List of observations for add_observations/delete_observations.")
+
+
+# ====================================
+#   MCP STDIO client – JSON-RPC/LSP
+# ====================================
+
+class MCPClient:
+    """
+    STDIO MCP client for neo4j-contrib 'mcp-neo4j-memory' server.
+    Public:
+      - initialize()
+      - tools_list()
+      - call_tool(name, arguments)
+      - close()
+    """
+    def __init__(self, cmd: str):
+        self.proc = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=0,
+        )
+        self._q: "queue.Queue[dict]" = queue.Queue()
+        self._id = 0
+        self._alive = True
+        self._reader = threading.Thread(target=self._read_loop, daemon=True)
+        self._reader.start()
+
+    def _read_loop(self):
+        f = self.proc.stdout
+        while self._alive:
+            header = b""
+            # Read LSP headers
+            while b"\r\n\r\n" not in header:
+                line = f.readline()
+                if not line:
+                    self._alive = False
+                    return
+                header += line
+            head, _, _ = header.partition(b"\r\n\r\n")
+            length = 0
+            for ln in head.split(b"\r\n"):
+                if ln.lower().startswith(b"content-length:"):
+                    try:
+                        length = int(ln.split(b":", 1)[1].strip())
+                    except Exception:
+                        length = 0
+            body = f.read(length)
+            with contextlib.suppress(Exception):
+                msg = json.loads(body.decode("utf-8"))
+                self._q.put(msg)
+
+    def _send(self, obj: dict):
+        raw = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        header = f"Content-Length: {len(raw)}\r\n\r\n".encode("utf-8")
+        self.proc.stdin.write(header + raw)
+        self.proc.stdin.flush()
+
+    def _request(self, method: str, params: Optional[dict] = None, timeout: int = 60) -> dict:
+        self._id += 1
+        rid = self._id
+        self._send({"jsonrpc": "2.0", "id": rid, "method": method, "params": params or {}})
+        t0 = time.time()
+        while time.time() - t0 < timeout:
+            try:
+                msg = self._q.get(timeout=timeout)
+            except queue.Empty:
+                break
+            if msg.get("id") == rid:
+                if "error" in msg:
+                    raise RuntimeError(msg["error"])
+                return msg.get("result")
+        raise TimeoutError(f"MCP request timeout: {method}")
+
+    def initialize(self):
+        return self._request("initialize", {"protocolVersion": "2024-11-05", "capabilities": {}}, timeout=30)
+
+    def tools_list(self) -> dict:
+        return self._request("tools/list", {}, timeout=30)
+
+    def call_tool(self, name: str, arguments: dict, timeout: int = 120) -> dict:
+        return self._request("tools/call", {"name": name, "arguments": arguments}, timeout=timeout)
+
+    def close(self):
+        with contextlib.suppress(Exception):
+            self._alive = False
+            if self.proc and self.proc.poll() is None:
+                self.proc.terminate()
 
 
 def _neo4j_host_port_from_url(url: str) -> Optional[tuple[str, int]]:
@@ -170,96 +325,6 @@ def wait_for_http(url: str, timeout: int = 240):
 
 
 # ====================================
-#   MCP STDIO client – JSON-RPC/LSP
-# ====================================
-
-class MCPClient:
-    """
-    STDIO MCP client for neo4j-contrib 'mcp-neo4j-memory' server.
-    Public:
-      - initialize()
-      - tools_list()
-      - call_tool(name, arguments)
-      - close()
-    """
-    def __init__(self, cmd: str):
-        self.proc = subprocess.Popen(
-            cmd,
-            shell=True,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=0,
-        )
-        self._q: "queue.Queue[dict]" = queue.Queue()
-        self._id = 0
-        self._alive = True
-        self._reader = threading.Thread(target=self._read_loop, daemon=True)
-        self._reader.start()
-
-    def _read_loop(self):
-        f = self.proc.stdout
-        while self._alive:
-            header = b""
-            # Read LSP headers
-            while b"\r\n\r\n" not in header:
-                line = f.readline()
-                if not line:
-                    self._alive = False
-                    return
-                header += line
-            head, _, _ = header.partition(b"\r\n\r\n")
-            length = 0
-            for ln in head.split(b"\r\n"):
-                if ln.lower().startswith(b"content-length:"):
-                    try:
-                        length = int(ln.split(b":", 1)[1].strip())
-                    except Exception:
-                        length = 0
-            body = f.read(length)
-            with contextlib.suppress(Exception):
-                msg = json.loads(body.decode("utf-8"))
-                self._q.put(msg)
-
-    def _send(self, obj: dict):
-        raw = json.dumps(obj, ensure_ascii=False).encode("utf-8")
-        header = f"Content-Length: {len(raw)}\r\n\r\n".encode("utf-8")
-        self.proc.stdin.write(header + raw)
-        self.proc.stdin.flush()
-
-    def _request(self, method: str, params: Optional[dict] = None, timeout: int = 60) -> dict:
-        self._id += 1
-        rid = self._id
-        self._send({"jsonrpc": "2.0", "id": rid, "method": method, "params": params or {}})
-        t0 = time.time()
-        while time.time() - t0 < timeout:
-            try:
-                msg = self._q.get(timeout=timeout)
-            except queue.Empty:
-                break
-            if msg.get("id") == rid:
-                if "error" in msg:
-                    raise RuntimeError(msg["error"])
-                return msg.get("result")
-        raise TimeoutError(f"MCP request timeout: {method}")
-
-    def initialize(self):
-        return self._request("initialize", {"protocolVersion": "2024-11-05", "capabilities": {}}, timeout=30)
-
-    def tools_list(self) -> dict:
-        return self._request("tools/list", {}, timeout=30)
-
-    def call_tool(self, name: str, arguments: dict, timeout: int = 120) -> dict:
-        return self._request("tools/call", {"name": name, "arguments": arguments}, timeout=timeout)
-
-    def close(self):
-        with contextlib.suppress(Exception):
-            self._alive = False
-            if self.proc and self.proc.poll() is None:
-                self.proc.terminate()
-
-
-# ====================================
 #   Paperless helpers
 # ====================================
 
@@ -315,28 +380,8 @@ def obsidian_write(doc: dict, idx: int, text: str):
         }
         body = "---\n" + json.dumps(meta, ensure_ascii=False, indent=2) + "\n---\n\n" + text + "\n"
         (VAULT_DIR / f"{slug}.md").write_text(body, encoding="utf-8")
-    except Exception as exc:
-        logger.warning(f"Obsidian write error: {exc}")
-
-
-# ====================================
-#   LangChain Tool wrap – FULL toolset
-# ====================================
-
-class NodeQueryArgs(BaseModel):
-    query: dict = Field(..., description="Search conditions for find_nodes/search_nodes/read_graph.")
-
-
-class EntitiesArgs(BaseModel):
-    entities: list = Field(..., description="List of entities for create_entities/delete_entities.")
-
-
-class RelationsArgs(BaseModel):
-    relations: list = Field(..., description="List of relations for create_relations/delete_relations.")
-
-
-class ObservationsArgs(BaseModel):
-    observations: list = Field(..., description="List of observations for add_observations/delete_observations.")
+    except Exception:
+        logger.exception("Obsidian write error")
 
 
 def build_tools(mcp: MCPClient) -> List[StructuredTool]:
@@ -387,41 +432,6 @@ def build_tools(mcp: MCPClient) -> List[StructuredTool]:
     tools.append(wrap("delete_observations", ObservationsArgs))
 
     return tools
-
-
-# ====================================
-#   Prompt (user-prompt; no system)
-# ====================================
-
-PROMPT_TMPL = """You: You are a professional journalist and language researcher who is able to distill key information from various sources and detect
-relations between the observations and facts even if there are a time gaps between.
-Task: Based on the text below, BUILD KNOWLEDGE into the Neo4j-based memory graph using the AVAILABLE TOOLS
-(find_nodes, search_nodes, read_graph, create_entities, delete_entities, create_relations, delete_relations, add_observations, delete_observations).
-
-Rules:
-- First SEARCH (find_nodes / search_nodes / query), then UPSERT (delete+recreate), then OBSERVATION (with add_observations), 
-  just CREATE when not existing found (create_entities, add_observations and create_relations).
-- Every entity/relation/observation must carry: source_id="{SOURCE_ID}", chunk_id="{CHUNK_ID}", source_url="{SOURCE_URL}" (if relevant).
-- Do not duplicate: find_nodes → if exists, use it; otherwise create_entities.
-- Canonize names: e.g. "OTP Bank Nyrt." → "OTP Bank".
-- Date ISO: YYYY-MM-DD (if only year/month known, fill with 01). Money: value (number), unit (USD/HUF/EUR/$/Ft/€).
-- Relation examples, you can use other types if needed: offers, announces, acquires, releases, located_in, headquartered_in, founded_on, ceo_of, part_of,
-  depends_on, compatible_with, integrates_with, price_of, discounted_to, available_at, published_on, linked_to, cites,
-  authored_by, version_of, supersedes, fixes, affected_by, related_to, deprecated_by.
-- For every relation/observation add a short evidence snippet and confidence [0.0–1.0].
-- Keep calling tools as long as meaningful information can be extracted. Do not write explanations. If nothing more to do: write a single word: DONE.
-
-Useful patterns (guidelines, adjust to the schema expected by the tool):
-- create_entities: {"entities":[{"name":"…","type":"Organization","source_id":"{SOURCE_ID}","chunk_id":"{CHUNK_ID}"}]}
-- create_relations: {"relations":[{"subject":{"name":"…"},"predicate":"offers","object":{"name":"…"},"when":"2025-08-01","evidence":"…","confidence":0.8,"source_id":"{SOURCE_ID}","chunk_id":"{CHUNK_ID}"}]}
-- add_observations: {"observations":[{"entity":{"name":"…"},"text":"…","source_url":"{SOURCE_URL}","confidence":0.6,"source_id":"{SOURCE_ID}","chunk_id":"{CHUNK_ID}"}]}
-
-TEXT:
-<<<
-{TEXT}
->>>
-
-"""
 
 
 # ====================================
@@ -478,51 +488,71 @@ def bootstrap_services():
     _ = paperless_headers()
 
 
-def process_document(doc):
+def prepare_document_work(doc: dict) -> Optional[DocumentWork]:
+    """Prepare a document processing unit or return None if it should be skipped.
+    - Skips when id <= last_id
+    - Skips and advances state when no text
+    - Skips and advances state when hash unchanged
     """
-    Process a single document: extract text, chunk, and run the agent.
-    """
-    doc_id = int(doc.get("id", 0))
+    try:
+        doc_id = int(doc.get("id", 0))
+    except Exception:
+        return None
+
     if doc_id <= STATE.get("last_id", 0):
-        return
+        return None
 
     text = extract_text(doc)
-    if not text:
-        STATE["last_id"] = doc_id
-        STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
-        return
 
+    if not text:
+        return _extracted_from_prepare_document_work(doc_id)
     h = hashlib.sha256(text.encode("utf-8")).hexdigest()
     if STATE["hashes"].get(str(doc_id)) == h:
-        STATE["last_id"] = doc_id
-        STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
-        return
+        return _extracted_from_prepare_document_work(doc_id)
 
     chunks = chunk_text(text, CHUNK_SIZE)
-    for ci, ch in enumerate(chunks):
-        source_id = str(doc_id)
-        chunk_id = f"c{ci+1}"
-        source_url = str(doc.get("download_url") or "")
+    source_url = str(doc.get("download_url") or "")
+    return DocumentWork(doc_id=doc_id, source_url=source_url, chunks=chunks, text_hash=h, doc=doc)
 
+
+def _extracted_from_prepare_document_work(doc_id):
+    STATE["last_id"] = doc_id
+    with contextlib.suppress(Exception):
+        STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
+    return None
+
+
+def run_downstream_steps(work: DocumentWork) -> None:
+    """Run agent per chunk and optional Obsidian export."""
+    for ci, ch in enumerate(work.chunks):
+        source_id = str(work.doc_id)
+        chunk_id = f"c{ci+1}"
         try:
-            run_for_chunk(MEMORY_MCP_CMD, source_id, chunk_id, source_url, ch)
+            run_for_chunk(MEMORY_MCP_CMD, source_id, chunk_id, work.source_url, ch)
         except Exception as exc:
-            logger.warning(f"Agent/MCP error doc {doc_id} {chunk_id}: {exc}")
+            logger.warning(f"Agent/MCP error doc {work.doc_id} {chunk_id}: {exc}")
 
         if str(environ.get("OBSIDIAN_EXPORT", False)).lower() in {"1", "true", "yes"}:
             try:
-                obsidian_write(doc, ci, ch)
-            except Exception as exc:
-                logger.warning(f"Obsidian write error: {exc}")
+                obsidian_write(work.doc, ci, ch)
+            except Exception:
+                logger.exception("Obsidian write error")
 
-    STATE["hashes"][str(doc_id)] = h
-    STATE["last_id"] = doc_id
+
+def finalize_document(work: DocumentWork) -> None:
+    STATE["hashes"][str(work.doc_id)] = work.text_hash
+    STATE["last_id"] = work.doc_id
     with contextlib.suppress(Exception):
         STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
 
 
-RUN_LOCK = threading.Lock()
-STOP_EVENT = threading.Event()
+def process_document(doc):
+    """Orchestrate document processing with clear SRP-compliant steps."""
+    work = prepare_document_work(doc)
+    if not work:
+        return
+    run_downstream_steps(work)
+    finalize_document(work)
 
 
 def main():
@@ -537,10 +567,10 @@ def main():
                 break
             try:
                 process_document(doc)
-            except Exception as e:
-                logger.error(f"Failed to process document: {e}")
-    except Exception as e:
-        logger.critical(f"Fatal error in main: {e}")
+            except Exception as exc:
+                logger.error(f"Failed to process document: {exc}")
+    except Exception as exc:
+        logger.critical(f"Fatal error in main: {exc}")
         raise
 
 
@@ -570,6 +600,11 @@ def schedule_importer():
         time.sleep(1)
 
 
+# Scheduler coordination primitives
+RUN_LOCK = threading.Lock()
+STOP_EVENT = threading.Event()
+
+
 if __name__ == "__main__":
     # Configure loguru with a rotating file handler
     LOG_FILE = os.getenv("LOG_FILE", "/data/importer.log")
@@ -579,7 +614,7 @@ if __name__ == "__main__":
         pass
     logger.add(
         LOG_FILE,
-        rotation="10 MB",  # Rotate log file after it reaches 10 MB
+        rotation="10 MB",  # Rotate a log file after it reaches 10 MB
         retention="10 days",  # Keep logs for 10 days
         enqueue=True,  # Thread-safe logging
         backtrace=True,  # Include backtrace in errors
