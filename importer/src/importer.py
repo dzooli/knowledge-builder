@@ -8,6 +8,7 @@ import hashlib
 import subprocess
 import threading
 import queue
+import signal
 from os import environ
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -39,6 +40,9 @@ MEMORY_MCP_CMD: str = os.getenv("MEMORY_MCP_CMD", "mcp-neo4j-memory")
 STATE_PATH: Path = Path(os.getenv("STATE_PATH", "/data/state.json"))
 VAULT_DIR: Path = Path(os.getenv("VAULT_DIR", "/data/obsidian"))
 TZ: str = os.getenv("TZ", "Europe/Budapest")
+
+# Chunk size for splitting text (item 3)
+CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", "5000"))
 
 VAULT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -494,7 +498,7 @@ def process_document(doc):
         STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
         return
 
-    chunks = chunk_text(text, 5000)
+    chunks = chunk_text(text, CHUNK_SIZE)
     for ci, ch in enumerate(chunks):
         source_id = str(doc_id)
         chunk_id = f"c{ci+1}"
@@ -517,10 +521,20 @@ def process_document(doc):
         STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
 
 
+RUN_LOCK = threading.Lock()
+STOP_EVENT = threading.Event()
+
+
 def main():
+    if STOP_EVENT.is_set():
+        logger.info("Shutdown requested before run; skipping main().")
+        return
     try:
         bootstrap_services()
         for doc in paperless_iter():
+            if STOP_EVENT.is_set():
+                logger.info("Shutdown requested during run; stopping early.")
+                break
             try:
                 process_document(doc)
             except Exception as e:
@@ -533,32 +547,65 @@ def main():
 def schedule_importer():
     """
     Schedule the main function to run periodically based on SCHEDULE_TIME (default: 5 minutes).
+    Prevent overlapping runs and support graceful shutdown.
     """
     schedule_time = int(os.getenv("SCHEDULE_TIME", "5"))  # Time in minutes
-    schedule.every(schedule_time).minutes.do(main)
 
-    while True:
+    def _job():
+        if STOP_EVENT.is_set():
+            return
+        acquired = RUN_LOCK.acquire(blocking=False)
+        if not acquired:
+            logger.warning("Previous run still in progress; skipping this schedule tick.")
+            return
+        try:
+            main()
+        finally:
+            RUN_LOCK.release()
+
+    schedule.every(schedule_time).minutes.do(_job)
+
+    while not STOP_EVENT.is_set():
         schedule.run_pending()
         time.sleep(1)
 
 
 if __name__ == "__main__":
     # Configure loguru with a rotating file handler
-    LOG_FILE = "importer.log"
+    LOG_FILE = os.getenv("LOG_FILE", "/data/importer.log")
+    try:
+        Path(LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
     logger.add(
         LOG_FILE,
-        rotation="50 MB",  # Rotate log file after it reaches 10 MB
+        rotation="10 MB",  # Rotate log file after it reaches 10 MB
         retention="10 days",  # Keep logs for 10 days
         enqueue=True,  # Thread-safe logging
         backtrace=True,  # Include backtrace in errors
         diagnose=True,  # Include detailed diagnostics
     )
 
-    try:
-        # Run the first import immediately
-        main()
+    # Signal handlers for graceful shutdown
+    def _handle_signal(signum, frame):
+        logger.info(f"Received signal {signum}; requesting shutdown...")
+        STOP_EVENT.set()
 
-        # Start the scheduler
+    for sig in (getattr(signal, "SIGINT", None), getattr(signal, "SIGTERM", None)):
+        if sig is not None:
+            signal.signal(sig, _handle_signal)
+
+    try:
+        # Run the first import immediately without overlap
+        if RUN_LOCK.acquire(blocking=False):
+            try:
+                main()
+            finally:
+                RUN_LOCK.release()
+        else:
+            logger.warning("Importer already running at startup; initial run skipped.")
+
+        # Start the scheduler loop (blocks until STOP_EVENT)
         schedule_importer()
     except KeyboardInterrupt:
         logger.info("Interrupted.")
@@ -566,3 +613,6 @@ if __name__ == "__main__":
     except Exception as e:
         logger.critical(f"Fatal error: {e}")
         sys.exit(1)
+    finally:
+        # Final cleanup hook if needed in future (e.g., close pools)
+        logger.info("Importer stopped.")
