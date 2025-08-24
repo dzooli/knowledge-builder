@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 from urllib.parse import urlparse
 
-import requests
+import httpx
 from pydantic import BaseModel, Field
 import schedule
 from loguru import logger
@@ -116,10 +116,11 @@ def wait_for_http(url: str, timeout: int = 240):
     t0 = time.time()
     while time.time() - t0 < timeout:
         with contextlib.suppress(Exception):
-            r = requests.get(url, timeout=5)
-            if r.ok:
-                logger.info("[bootstrap] Available:", url)
-                return
+            with httpx.Client(timeout=5) as client:
+                r = client.get(url)
+                if r.status_code == 200:
+                    logger.info(f"[bootstrap] Available: {url}")
+                    return
         time.sleep(2)
     raise RuntimeError(f"Service not available: {url}")
 
@@ -227,11 +228,12 @@ def paperless_iter():
     url = f"{PAPERLESS_URL}/api/documents/?ordering=id"
     headers = paperless_headers()
     while url:
-        r = requests.get(url, headers=headers, timeout=30)
-        r.raise_for_status()
-        data = r.json()
-        yield from data.get("results", [])
-        url = data.get("next")
+        with httpx.Client(timeout=30) as client:
+            r = client.get(url, headers=headers)
+            r.raise_for_status()
+            data = r.json()
+            yield from data.get("results", [])
+            url = data.get("next")
 
 
 def extract_text(doc: dict) -> str:
