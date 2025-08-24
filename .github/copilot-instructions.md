@@ -43,7 +43,7 @@ these rules:
 
 #### Pythonic coding - applicable to Python
 
-- Use slotted dataclasses when applicable
+- Use slotted dataclasses or PydanticV2 data models when applicable
 - Use generators and iterators when applicable
 - Use effective Python data structures and algorithms
 - Use enumerate instead of range

@@ -40,43 +40,43 @@ overlapping runs**, and **verbose logging** using `loguru`.
 - Free ports: `7474`, `7687`, `8900`, `11434`
 - On Linux, Compose already includes: `extra_hosts: host.docker.internal:host-gateway`
 
+
 ## 🚀 Quickstart
 
-1) Start Neo4j (uses root .env)
+1\) **Start Neo4j**  
+Ensure `NEO4J_USERNAME` and `NEO4J_PASSWORD` from the root `.env` are used by `neo4j-stack`.  
+**Recommended:**
 
-   You have two equivalent options to ensure NEO4J_USERNAME/NEO4J_PASSWORD from the project root .env are used by
-   neo4j-stack:
+   ```bash
+   docker compose --env-file ./.env -f neo4j-stack/docker-compose.yml up -d
+   ```
 
-    - From the project root (recommended):
+**Alternative:**
 
-      ```bash
-      docker compose --env-file ./.env -f neo4j-stack/docker-compose.yml up -d
-      ```
+   ```bash
+   cd neo4j-stack
+   docker compose --env-file ../.env up -d
+   ```
 
-    - Or from inside neo4j-stack passing the root .env explicitly:
+Neo4j UI: [http://localhost:7474](http://localhost:7474)  
+Login: user=`NEO4J_USERNAME`, pass=`NEO4J_PASSWORD`
 
-      ```bash
-      cd neo4j-stack
-      docker compose --env-file ../.env up -d
-      ```
-
-    - Neo4j UI will be available on: http://localhost:7474 (user: value of NEO4J_USERNAME; pass: value of
-      NEO4J_PASSWORD)
-
-2) Start KB stack (Paperless, Ollama, Importer)
+2\) **Start KB stack** (Paperless, Ollama, Importer)
 
    ```bash
    cd <PROJECT_ROOT>
    docker compose up -d --build
    ```
 
-3) **Paperless token**  
-   On first start, `paperless-token-init` tries to request an API token. If it fails, it creates:
+3\) **Paperless token**  
+On first start, `paperless-token-init` requests an API token. If it fails, it creates:
+
    ```bash
-    ./bootstrap/paperless_token.txt  # content: PENDING
+   ./bootstrap/paperless_token.txt  # content: PENDING
    ```
-   Open the Paperless UI (http://localhost:8900) → *My Profile → Generate token* and enter it in the file. The *
-   *Importer** will detect it within 5 seconds and start.
+
+Open Paperless UI ([http://localhost:8900](http://localhost:8900)) → *My Profile → Generate token*  
+Enter the token in the file. The Importer will detect it within 5 seconds and start.
 
 ## 🔧 Configuration (key envs)
 
