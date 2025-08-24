@@ -85,6 +85,11 @@ services:
       STATE_PATH: "/data/state.json"
       VAULT_DIR: "/data/obsidian"
       TZ: "Europe/Budapest"
+      # Scheduler interval in minutes (item 4)
+      SCHEDULE_TIME: "5"
+      # Optional tuning (item 1 & 3)
+      LOG_FILE: "/data/importer.log"
+      CHUNK_SIZE: "5000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

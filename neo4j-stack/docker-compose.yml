@@ -3,7 +3,7 @@ services:
     image: neo4j:5-community
     container_name: neo4j
     environment:
-      NEO4J_AUTH: "${NEO4J_USER}/${NEO4J_PASSWORD}"
+      NEO4J_AUTH: "${NEO4J_USERNAME}/${NEO4J_PASSWORD}"
       NEO4J_server_memory_heap_initial__size: "512m"
       NEO4J_server_memory_heap_max__size: "1024m"
       NEO4J_server_memory_pagecache_size: "512m"
