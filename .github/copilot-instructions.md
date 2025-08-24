@@ -59,3 +59,4 @@ these rules:
 - use exception handling
 - use pathlib for file system paths
 - use httpx for HTTP requests
+- use 'yield from' structure when working with generators
