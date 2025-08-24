@@ -1,0 +1,105 @@
+services:
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless
+    environment:
+      PAPERLESS_OCR_LANGUAGE: "hun+eng"
+      PAPERLESS_TIME_ZONE: "Europe/Budapest"
+      PAPERLESS_ADMIN_USER: "admin"
+      PAPERLESS_ADMIN_PASSWORD: "adminpass"
+    volumes:
+      - ./paperless/data:/usr/src/paperless/data
+      - ./paperless/media:/usr/src/paperless/media
+      - ./inbox:/usr/src/paperless/consume
+      - ./bootstrap:/bootstrap
+    ports:
+      - "8900:8000"
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 3s
+      retries: 60
+    restart: unless-stopped
+
+  ollama-model-init:
+    image: ollama/ollama:latest
+    container_name: ollama-model-init
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+    command: ["sh","-lc","\n      echo 'Várakozás az Ollamára...';\n      for i in $(seq 1 120); do ollama list >/dev/null 2>&1 && break || sleep 2; done;\n      echo 'Alap modell lehúzása (llama3.1:8b)...';\n      ollama pull llama3.1:8b || true;\n      echo 'Saját profil építése (temperature=0) -> llama31-kb';\n      ollama create llama31-kb -f /modelfile/Modelfile || true;\n      echo 'Kész: llama31-kb';\n    "]
+    volumes:
+      - ollama:/root/.ollama
+      - ./modelfile:/modelfile:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  # TOKen bootstrap csak API-val (nincs manage.py), és nem blokkolja a stacket
+  paperless-token-init:
+    image: curlimages/curl:8.9.1
+    container_name: paperless-token-init
+    environment:
+      PAPERLESS_ADMIN_USER: "admin"
+      PAPERLESS_ADMIN_PASSWORD: "adminpass"
+      PAPERLESS_URL: "http://paperless:8000"
+      TOKEN_PATH: "/bootstrap/paperless_token.txt"
+      # mennyi ideig próbálkozzon (mp)
+      BOOTSTRAP_TIMEOUT: "360"
+    volumes:
+      - ./bootstrap:/bootstrap
+    command: ["sh","-lc","\n      set -euo pipefail;\n      echo 'Várakozás Paperless-re...';\n      for i in $(seq 1 180); do curl -sf \"$PAPERLESS_URL\" && break || sleep 2; done;\n      echo 'Token szerzés API-n...';\n      start=$(date +%s);\n      token='';\n      while :; do\n        for EP in /api/token/ /api/api-token-auth/; do\n          resp=$(curl -sf -X POST -H 'Content-Type: application/json' \\\n            -d '{\"username\":\"'\"$PAPERLESS_ADMIN_USER\"'\",\"password\":\"'\"$PAPERLESS_ADMIN_PASSWORD\"'\"}' \\\n            \"$PAPERLESS_URL$EP\" || true)\n          token=$(printf '%s' \"$resp\" | awk -F'\"token\"[: ]*\"' '{print $2}' | awk -F'\"' '{print $1}');\n          if [ -n \"$token\" ]; then\n            printf '%s' \"$token\" > \"$TOKEN_PATH\";\n            echo 'Token elmentve:' \"$TOKEN_PATH\";\n            exit 0;\n          fi\n        done\n        now=$(date +%s); elapsed=$((now-start));\n        [ \"$elapsed\" -ge \"$BOOTSTRAP_TIMEOUT\" ] && break;\n        sleep 3;\n      done\n      echo 'Token nem elérhető most. PENDING jelölés írása és kilépés 0-val (stack megy tovább).';\n      echo -n 'PENDING' > \"$TOKEN_PATH\";\n      exit 0;\n    "]
+    depends_on:
+      paperless:
+        condition: service_started
+    restart: "no"
+
+  importer:
+    build:
+      context: .
+      dockerfile: importer/Dockerfile
+    container_name: importer
+    environment:
+      PAPERLESS_URL: "http://paperless:8000"
+      PAPERLESS_TOKEN_FILE: "/bootstrap/paperless_token.txt"
+      OLLAMA_URL: "http://ollama:11434"
+      OLLAMA_MODEL: "llama31-kb"
+      # Primary Neo4j vars
+      NEO4J_URL: "bolt://host.docker.internal:7687"
+      NEO4J_USERNAME: ${NEO4J_USERNAME}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      # Compatibility duplicates
+      NEO4J_URI: "bolt://host.docker.internal:7687"
+      NEO4J_USER: ${NEO4J_USERNAME}
+      NEO4J_PASS: ${NEO4J_PASSWORD}
+      MEMORY_MCP_CMD: "mcp-neo4j-memory"
+      STATE_PATH: "/data/state.json"
+      VAULT_DIR: "/data/obsidian"
+      TZ: "Europe/Budapest"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/data
+      - ./bootstrap:/bootstrap:ro
+    depends_on:
+      paperless:
+        condition: service_started
+      paperless-token-init:
+        condition: service_completed_successfully
+      ollama:
+        condition: service_healthy
+      ollama-model-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  ollama:

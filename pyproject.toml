@@ -1,0 +1,12 @@
+[project]
+name = "knowledge-builder"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "langchain>=0.3.27",
+    "langchain-community>=0.3.27",
+    "mcp-neo4j-memory>=0.3.0",
+    "pydantic>=2.11.7",
+    "requests>=2.32.5",
+]

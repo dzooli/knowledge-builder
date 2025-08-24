@@ -1,0 +1,24 @@
+# VCS and IDE
+.git
+.gitignore
+.idea/
+
+# Python caches and venvs
+**/__pycache__/
+*.pyc
+.venv/
+
+# Local data/state that shouldn’t go into images
+/data/
+/paperless/data/
+/paperless/media/
+/inbox/
+/neo4j-stack/data/
+/neo4j-stack/logs/
+/neo4j-stack/import/
+/neo4j-stack/plugins/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
