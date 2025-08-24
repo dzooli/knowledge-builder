@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 import requests
 from pydantic import BaseModel, Field
 import schedule
+from loguru import logger
 
 from langchain.tools import StructuredTool
 from langchain.agents import initialize_agent, AgentType
@@ -77,9 +78,10 @@ def wait_for_paperless_token(timeout_seconds: int = 0) -> str:
 
     token_path = PAPERLESS_TOKEN_FILE
     if not token_path:
+        logger.error("Neither PAPERLESS_TOKEN nor PAPERLESS_TOKEN_FILE is specified.")
         raise RuntimeError("Neither PAPERLESS_TOKEN nor PAPERLESS_TOKEN_FILE is specified.")
 
-    print(f"[bootstrap] Watching token: {token_path}", flush=True)
+    logger.info(f"[bootstrap] Watching token: {token_path}")
     deadline = (time.time() + timeout_seconds) if timeout_seconds > 0 else None
 
     while True:
@@ -88,20 +90,21 @@ def wait_for_paperless_token(timeout_seconds: int = 0) -> str:
                 content = Path(token_path).read_text(encoding="utf-8").strip()
                 if content and content.upper() != "PENDING":
                     PAPERLESS_TOKEN = content
-                    print("[bootstrap] Paperless token read.", flush=True)
+                    logger.info("[bootstrap] Paperless token read.")
                     return content
         if deadline and time.time() > deadline:
+            logger.error("Token not available within the specified time.")
             raise RuntimeError("Token not available within the specified time.")
         time.sleep(2)
 
 
 def wait_for_neo4j(host: str, port: int, timeout: int = 240):
-    print(f"[bootstrap] Waiting for Neo4j at {host}:{port} ...", flush=True)
+    logger.info(f"[bootstrap] Waiting for Neo4j at {host}:{port} ...")
     t0 = time.time()
     while time.time() - t0 < timeout:
         try:
             with socket.create_connection((host, port), timeout=2):
-                print("[bootstrap] Neo4j available.", flush=True)
+                logger.info("[bootstrap] Neo4j available.")
                 return
         except OSError:
             time.sleep(2)
@@ -109,13 +112,13 @@ def wait_for_neo4j(host: str, port: int, timeout: int = 240):
 
 
 def wait_for_http(url: str, timeout: int = 240):
-    print(f"[bootstrap] Waiting for HTTP service: {url}", flush=True)
+    logger.info(f"[bootstrap] Waiting for HTTP service: {url}")
     t0 = time.time()
     while time.time() - t0 < timeout:
         with contextlib.suppress(Exception):
             r = requests.get(url, timeout=5)
             if r.ok:
-                print("[bootstrap] Available:", url, flush=True)
+                logger.info("[bootstrap] Available:", url)
                 return
         time.sleep(2)
     raise RuntimeError(f"Service not available: {url}")
@@ -252,7 +255,7 @@ def obsidian_write(doc: dict, idx: int, text: str):
         body = "---\n" + json.dumps(meta, ensure_ascii=False, indent=2) + "\n---\n\n" + text + "\n"
         (VAULT_DIR / f"{slug}.md").write_text(body, encoding="utf-8")
     except Exception as exc:
-        print(f"[WARN] Obsidian write error: {exc}", flush=True)
+        logger.warning(f"Obsidian write error: {exc}")
 
 
 # ====================================
@@ -430,13 +433,13 @@ def process_document(doc):
         try:
             run_for_chunk(MEMORY_MCP_CMD, source_id, chunk_id, source_url, ch)
         except Exception as exc:
-            print(f"[WARN] Agent/MCP error doc {doc_id} {chunk_id}: {exc}", flush=True)
+            logger.warning(f"Agent/MCP error doc {doc_id} {chunk_id}: {exc}")
 
         if str(environ.get("OBSIDIAN_EXPORT", False)).lower() in {"1", "true", "yes"}:
             try:
                 obsidian_write(doc, ci, ch)
             except Exception as exc:
-                print(f"[WARN] Obsidian write error: {exc}", flush=True)
+                logger.warning(f"Obsidian write error: {exc}")
 
     STATE["hashes"][str(doc_id)] = h
     STATE["last_id"] = doc_id
@@ -445,12 +448,16 @@ def process_document(doc):
 
 
 def main():
-    bootstrap_services()
-    for doc in paperless_iter():
-        try:
-            process_document(doc)
-        except Exception as e:
-            print(f"[ERROR] Failed to process document: {e}", flush=True)
+    try:
+        bootstrap_services()
+        for doc in paperless_iter():
+            try:
+                process_document(doc)
+            except Exception as e:
+                logger.error(f"Failed to process document: {e}")
+    except Exception as e:
+        logger.critical(f"Fatal error in main: {e}")
+        raise
 
 
 def schedule_importer():
@@ -466,6 +473,17 @@ def schedule_importer():
 
 
 if __name__ == "__main__":
+    # Configure loguru with a rotating file handler
+    LOG_FILE = "importer.log"
+    logger.add(
+        LOG_FILE,
+        rotation="50 MB",  # Rotate log file after it reaches 10 MB
+        retention="10 days",  # Keep logs for 10 days
+        enqueue=True,  # Thread-safe logging
+        backtrace=True,  # Include backtrace in errors
+        diagnose=True,  # Include detailed diagnostics
+    )
+
     try:
         # Run the first import immediately
         main()
@@ -473,8 +491,8 @@ if __name__ == "__main__":
         # Start the scheduler
         schedule_importer()
     except KeyboardInterrupt:
-        print("\nInterrupted.", flush=True)
+        logger.info("Interrupted.")
         sys.exit(130)
     except Exception as e:
-        print(f"[FATAL] {e}", file=sys.stderr, flush=True)
+        logger.critical(f"Fatal error: {e}")
         sys.exit(1)

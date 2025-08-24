@@ -9,5 +9,6 @@ dependencies = [
     "mcp-neo4j-memory>=0.3.0",
     "pydantic>=2.11.7",
     "requests>=2.32.5",
-    "schedule>=1.2.0"
+    "schedule>=1.2.0",
+    "loguru>=0.7.0"
 ]

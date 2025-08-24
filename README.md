@@ -5,7 +5,8 @@
 This project is an **automated ETL pipeline**: knowledge is extracted from documents OCR-ed by Paperless-ngx using the *
 *Ollama** LLM, then loaded into a **Neo4j** graph via the official **Neo4j Memory MCP** server. The loading is performed
 by a **LangChain Agent**; tool calls are **delegated to the LLM itself**. Optionally, the raw text can also be exported
-to an **Obsidian** vault.
+to an **Obsidian** vault. The importer now includes a **scheduler** for periodic execution and **verbose logging** using
+`loguru`.
 
 ## ✨ Components
 
@@ -14,6 +15,8 @@ to an **Obsidian** vault.
 - **Importer (LangChain Agent)** – Paperless → chunk → prompt → LLM → Memory MCP tool calls (STDIO) → Neo4j
 - **Neo4j** – graph database + web UI (Browser)
 - **Memory MCP server** – `mcp-neo4j-memory` (STDIO, full toolset)
+- **Scheduler** – Executes the importer periodically (default: every 5 minutes)
+- **Loguru Logging** – Thread-safe, rotating logs for better diagnostics
 
 ## 📂 Directory Structure
 
@@ -89,6 +92,7 @@ to an **Obsidian** vault.
       STATE_PATH=/data/state.json
       VAULT_DIR=/data/obsidian
       OBSIDIAN_EXPORT=true            # Optional if you want Obsidian export
+      SCHEDULE_TIME=5                 # Optional, schedule interval in minutes
 
 - **Importer / pyproject.toml dependencies** (add if missing)
 
@@ -97,6 +101,8 @@ to an **Obsidian** vault.
       langchain
       langchain-community
       mcp-neo4j-memory
+      schedule
+      loguru
 
 ## 🧠 How the Importer Works
 
@@ -110,6 +116,8 @@ to an **Obsidian** vault.
     - `add_observations`, `delete_observations`
 5. For every created item, pass: `source_id`, `chunk_id`, `source_url`
 6. Optional: Obsidian export if enabled (`data/obsidian/`)
+7. **Scheduler**: Runs the importer periodically (default: every 5 minutes)
+8. **Logging**: Logs are written to `importer.log` with rotation after 10 MB.
 
 ## 🔍 Testing
 
