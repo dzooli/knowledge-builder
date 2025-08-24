@@ -122,6 +122,104 @@ Enter the token in the file. The Importer will detect it within 5 seconds and st
       schedule
       loguru
 
+## 📊 Program Operation
+
+This diagram provides a comprehensive view of the program's operation, showing the complete flow from startup through
+document processing to shutdown. It captures all the key components and decision points in the system while maintaining
+clarity about the ETL pipeline architecture.
+
+The Knowledge Builder follows a clear ETL (Extract, Transform, Load) pipeline architecture with scheduled execution and
+graceful shutdown capabilities. The following Mermaid diagram illustrates the complete operational flow:
+
+```mermaid
+flowchart TD
+    A[Start Importer] --> B[Bootstrap Services]
+    B --> C{Check Services}
+    C -->|Paperless| D[Wait for HTTP Service]
+    C -->|Neo4j| E[Wait for Neo4j Connection]
+    C -->|Ollama| F[Wait for Ollama API]
+    D --> G[Get Paperless Token]
+    E --> G
+    F --> G
+    G --> H[Initialize Scheduler]
+    H --> I[Run First Import]
+    I --> J[Start Periodic Scheduler]
+    J --> K[Schedule Check Every 5th Minutes]
+    K --> L{Time to Run?}
+    L -->|No| K
+    L -->|Yes| M{Previous Run Active?}
+    M -->|Yes| N[Skip - Log Warning]
+    N --> K
+    M -->|No| O[Acquire Run Lock]
+    O --> P[Fetch Documents from Paperless]
+    P --> Q{For Each Document}
+    Q --> R[Prepare Document Work]
+    R --> S{Should Process?}
+    S -->|Skip - ID ≤ last_id| T[Next Document]
+    S -->|Skip - No text| U[Update State]
+    S -->|Skip - Hash unchanged| U
+    S -->|Process| V[Extract & Chunk Text]
+    V --> W{For Each Chunk}
+    W --> X[Initialize MCP Client]
+    X --> Y[Create LangChain Tools]
+    Y --> Z[Initialize Ollama LLM]
+    Z --> AA[Create ReAct Agent]
+    AA --> BB[Generate Prompt]
+    BB --> CC[Agent Processes Chunk]
+    CC --> DD{Agent Actions}
+    DD -->|Search| EE[find_nodes/search_nodes]
+    DD -->|Create| FF[create_entities]
+    DD -->|Relate| GG[create_relations]
+    DD -->|Observe| HH[add_observations]
+    DD -->|Delete| II[delete_entities/relations]
+    EE --> JJ[MCP Tool Call to Neo4j]
+    FF --> JJ
+    GG --> JJ
+    HH --> JJ
+    II --> JJ
+    JJ --> KK{More Actions?}
+    KK -->|Yes| DD
+    KK -->|No| LL[Close MCP Client]
+    LL --> MM{Obsidian Export Enabled?}
+    MM -->|Yes| NN[Write Markdown File]
+    MM -->|No| OO[Next Chunk]
+    NN --> OO
+    OO --> PP{More Chunks?}
+    PP -->|Yes| W
+    PP -->|No| QQ[Finalize Document]
+    QQ --> RR[Update State & Hash]
+    RR --> T
+    T --> SS{More Documents?}
+    SS -->|Yes| Q
+    SS -->|No| TT[Release Run Lock]
+    U --> T
+    TT --> UU[Log Completion]
+    UU --> K
+    VV[Signal Handler] -->|SIGINT/SIGTERM| WW[Set Stop Event]
+    WW --> XX[Graceful Shutdown]
+    XX --> YY[Finish Current Run]
+    YY --> ZZ[Exit]
+    style A fill: #e1f5fe
+    style JJ fill: #f3e5f5
+    style XX fill: #ffebee
+    style ZZ fill: #ffebee
+```
+
+### Key Operational Features:
+
+- **Service Bootstrap**: Waits for all required services (Paperless, Neo4j, Ollama) before starting
+- **Token Management**: Handles Paperless API token from file with automatic detection
+- **Scheduled Execution**: Runs every 5 minutes (configurable) with overlap prevention
+- **Document Processing**: Tracks state to avoid reprocessing unchanged documents
+- **Chunk Processing**: Splits large documents into manageable chunks (5000 chars default)
+- **Agent-Driven**: LangChain ReAct agent makes autonomous decisions about Neo4j operations
+- **Graceful Shutdown**: Responds to signals and finishes current work before exiting
+- **Thread Safety**: Uses locks to prevent concurrent runs and thread-safe logging
+- **Error Resilience**: Continues processing other documents even if individual ones fail
+
+The system maintains idempotency through document hashing and state tracking, ensuring efficient incremental processing
+of new content.
+
 ## 🧠 How the Importer Works
 
 1. Paperless API: list new/modified documents
@@ -174,3 +272,5 @@ Enter the token in the file. The Importer will detect it within 5 seconds and st
 ## 📜 License
 
 MIT
+
+
