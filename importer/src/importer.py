@@ -35,7 +35,13 @@ NEO4J_HOST: str = os.getenv("NEO4J_HOST", "host.docker.internal")
 NEO4J_PORT: int = int(os.getenv("NEO4J_PORT", "7687"))
 NEO4J_URL: Optional[str] = os.getenv("NEO4J_URL") or os.getenv("NEO4J_URI")
 
-MEMORY_MCP_CMD: str = os.getenv("MEMORY_MCP_CMD", "mcp-neo4j-memory")
+# Reprocess toggle to bypass id/hash checks for troubleshooting
+FORCE_REPROCESS: bool = str(os.getenv("FORCE_REPROCESS", "0")).lower() in {"1", "true", "yes"}
+
+# Prefer running the MCP server via its console script. It's installed into /app/.venv/bin and on PATH.
+DEFAULT_MCP_CMD = "/app/.venv/bin/mcp-neo4j-memory"
+FALLBACK_MCP_CMD = "/app/.venv/bin/mcp-neo4j-memory"
+MEMORY_MCP_CMD: str = os.getenv("MEMORY_MCP_CMD", DEFAULT_MCP_CMD)
 
 STATE_PATH: Path = Path(os.getenv("STATE_PATH", "/data/state.json"))
 VAULT_DIR: Path = Path(os.getenv("VAULT_DIR", "/data/obsidian"))
@@ -134,6 +140,8 @@ class MCPClient:
       - close()
     """
     def __init__(self, cmd: str):
+        self._cmd = cmd
+        logger.info(f"[mcp] spawning: {cmd}")
         self.proc = subprocess.Popen(
             cmd,
             shell=True,
@@ -145,36 +153,63 @@ class MCPClient:
         self._q: "queue.Queue[dict]" = queue.Queue()
         self._id = 0
         self._alive = True
+        self._stderr_buf = bytearray()
         self._reader = threading.Thread(target=self._read_loop, daemon=True)
         self._reader.start()
+        self._stderr_reader = threading.Thread(target=self._read_stderr, daemon=True)
+        self._stderr_reader.start()
+
+    def _read_stderr(self):
+        f = self.proc.stderr
+        try:
+            while True:
+                chunk = f.readline()
+                if not chunk:
+                    break
+                # Limit buffer to last ~16KB
+                self._stderr_buf += chunk
+                if len(self._stderr_buf) > 16384:
+                    self._stderr_buf = self._stderr_buf[-16384:]
+        except Exception:
+            pass
 
     def _read_loop(self):
         f = self.proc.stdout
         while self._alive:
-            header = b""
-            # Read LSP headers
-            while b"\r\n\r\n" not in header:
+            header = bytearray()
+            # Read LSP headers; accept both CRLF and LF-only
+            while b"\r\n\r\n" not in header and b"\n\n" not in header:
                 line = f.readline()
                 if not line:
                     self._alive = False
                     return
                 header += line
-            head, _, _ = header.partition(b"\r\n\r\n")
+            # Normalize header lines
+            head_bytes = header.split(b"\r\n\r\n", 1)[0]
+            if b"\r\n\r\n" not in header:
+                head_bytes = header.split(b"\n\n", 1)[0]
+            try:
+                head_text = head_bytes.decode("utf-8", errors="ignore")
+            except Exception:
+                head_text = ""
             length = 0
-            for ln in head.split(b"\r\n"):
-                if ln.lower().startswith(b"content-length:"):
+            for ln in head_text.splitlines():
+                if ln.lower().startswith("content-length:"):
                     try:
-                        length = int(ln.split(b":", 1)[1].strip())
+                        length = int(ln.split(":", 1)[1].strip())
                     except Exception:
                         length = 0
-            body = f.read(length)
+            body = f.read(length) if length > 0 else b""
             with contextlib.suppress(Exception):
                 msg = json.loads(body.decode("utf-8"))
                 self._q.put(msg)
 
     def _send(self, obj: dict):
         raw = json.dumps(obj, ensure_ascii=False).encode("utf-8")
-        header = f"Content-Length: {len(raw)}\r\n\r\n".encode("utf-8")
+        header = (
+            f"Content-Length: {len(raw)}\r\n"
+            f"Content-Type: application/json; charset=utf-8\r\n\r\n"
+        ).encode("utf-8")
         self.proc.stdin.write(header + raw)
         self.proc.stdin.flush()
 
@@ -192,10 +227,24 @@ class MCPClient:
                 if "error" in msg:
                     raise RuntimeError(msg["error"])
                 return msg.get("result")
-        raise TimeoutError(f"MCP request timeout: {method}")
+        # Timed out: include process status and stderr tail
+        rc = self.proc.poll()
+        err_tail = self._stderr_buf.decode("utf-8", errors="ignore")[-4000:]
+        raise TimeoutError(f"MCP request timeout: {method}; cmd='{self._cmd}', rc={rc}, stderr_tail=\n{err_tail}")
 
     def initialize(self):
-        return self._request("initialize", {"protocolVersion": "2024-11-05", "capabilities": {}}, timeout=30)
+        # Allow more time for server cold start
+        result = self._request(
+            "initialize",
+            {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "knowledge-builder", "version": "0.1.0"},
+            },
+            timeout=60,
+        )
+        logger.info(f"[mcp] initialized via: {self._cmd}")
+        return result
 
     def tools_list(self) -> dict:
         return self._request("tools/list", {}, timeout=30)
@@ -263,21 +312,6 @@ def wait_for_paperless_token(timeout_seconds: int = 0) -> str:
 
 
 def wait_for_neo4j(host: str, port: int, timeout: int = 240):
-    """
-    Waits for a Neo4j database to become available at the specified host and port within a given
-    timeout. Continuously checks connectivity until either a successful connection is made
-    or the timeout period has elapsed. Logs the status during the wait process.
-
-    :param host: The hostname or IP address of Neo4j to connect to.
-    :type host: str
-    :param port: The port number on which Neo4j is listening.
-    :type port: int
-    :param timeout: The maximum time, in seconds, to wait for Neo4j to become available. Default
-                    is 240 seconds.
-    :type timeout: int, optional
-    :raises RuntimeError: If the Neo4j instance is not available within the timeout period.
-    :return: None
-    """
     logger.info(f"[bootstrap] Waiting for Neo4j at {host}:{port} ...")
     t0 = time.time()
     while time.time() - t0 < timeout:
@@ -291,26 +325,6 @@ def wait_for_neo4j(host: str, port: int, timeout: int = 240):
 
 
 def wait_for_http(url: str, timeout: int = 240):
-    """
-    Waits for an HTTP service at the given URL to become available, checking periodically
-    within a specified timeout period. The status of the HTTP service is considered
-    available if the server responds with a status code of 200.
-
-    This function will suppress errors during HTTP requests and retry every two seconds
-    until the service becomes available or the timeout is exceeded. If the timeout
-    is exceeded, a RuntimeError is raised indicating that the service is not available.
-
-    :param url: str
-        The target URL of the HTTP service to check for availability.
-    :param timeout: int
-        The maximum amount of time in seconds to wait for the HTTP service to become available.
-        Defaults to 240 seconds.
-    :return: None
-        The function returns None if the service is successfully detected as available within
-        the timeout period.
-    :raises RuntimeError:
-        Raised if the service does not become available within the specified timeout period.
-    """
     logger.info(f"[bootstrap] Waiting for HTTP service: {url}")
     t0 = time.time()
     while time.time() - t0 < timeout:
@@ -345,6 +359,15 @@ def paperless_iter():
             url = data.get("next")
 
 
+def paperless_get_document(doc_id: int) -> dict:
+    url = f"{PAPERLESS_URL}/api/documents/{doc_id}/"
+    headers = paperless_headers()
+    with httpx.Client(timeout=30) as client:
+        r = client.get(url, headers=headers)
+        r.raise_for_status()
+        return r.json()
+
+
 def extract_text(doc: dict) -> str:
     return (doc.get("content") or "").strip()
 
@@ -354,21 +377,6 @@ def chunk_text(t: str, max_chars: int = CHUNK_SIZE) -> List[str]:
 
 
 def obsidian_write(doc: dict, idx: int, text: str):
-    """
-    Writes a Markdown file formatted for Obsidian, including metadata and content,
-    to a specified directory. Metadata includes information such as the document
-    title, creation date, source URL, unique identifier, and chunk index.
-
-    :param doc: A dictionary representing the document metadata. Expected keys are:
-        - id (str): Unique identifier for the document.
-        - title (str, optional): Title of the document.
-        - created (str, optional): Date when the document was created.
-        - download_url (str, optional): URL to the original document source.
-    :param idx: The index of the current chunk in the document. Used to create
-        a unique slug and filename.
-    :param text: The content of the chunk to be written into the Markdown file.
-    :return: None
-    """
     try:
         slug = f"{doc['id']}_c{idx+1}"
         meta = {
@@ -380,25 +388,14 @@ def obsidian_write(doc: dict, idx: int, text: str):
         }
         body = "---\n" + json.dumps(meta, ensure_ascii=False, indent=2) + "\n---\n\n" + text + "\n"
         (VAULT_DIR / f"{slug}.md").write_text(body, encoding="utf-8")
+        logger.info(f"[obsidian] wrote: {slug}.md ({len(text)} chars)")
     except Exception:
         logger.exception("Obsidian write error")
 
 
 def build_tools(mcp: MCPClient) -> List[StructuredTool]:
-    """
-    Builds and returns a list of structured tools based on MCP tools available.
-
-    This function creates a collection of MCP tools by querying the MCP server for
-    available tools. Tools that are verified to exist on the MCP server are wrapped
-    with functionality to handle input and communicate with the MCP server for their
-    respective purposes, such as searching nodes, managing entities, and adding or
-    deleting observations.
-
-    :param mcp: An instance of the MCPClient used to communicate with the MCP server.
-    :return: A list of StructuredTool objects, each representing a specific MCP tool.
-    :rtype: List[StructuredTool]
-    """
     advertised = {t["name"] for t in mcp.tools_list().get("tools", [])}
+    logger.info(f"[mcp] advertised tools: {sorted(advertised)}")
     tools: List[StructuredTool] = []
 
     def ensure(name: str):
@@ -439,30 +436,53 @@ def build_tools(mcp: MCPClient) -> List[StructuredTool]:
 # ====================================
 
 def run_for_chunk(mcp_cmd: str, source_id: str, chunk_id: str, source_url: str, text: str):
-    mcp = MCPClient(mcp_cmd)
-    try:
-        mcp.initialize()
-        tools = build_tools(mcp)
-        llm = ChatOllama(model=OLLAMA_MODEL, base_url=OLLAMA_URL)  # temp=0 a modellprofilban
+    logger.info(f"[chunk] start doc={source_id} {chunk_id} len={len(text)}")
 
-        agent = initialize_agent(
-            tools=tools,
-            llm=llm,
-            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            verbose=True,
-            max_iterations=25,
-            handle_parsing_errors=True,
-        )
+    def _do_run(cmd: str):
+        mcp_local = MCPClient(cmd)
+        try:
+            mcp_local.initialize()
+            tools = build_tools(mcp_local)
+            llm = ChatOllama(model=OLLAMA_MODEL, base_url=OLLAMA_URL)  # temp=0 a modellprofilban
 
-        prompt = (PROMPT_TMPL
-                  .replace("{SOURCE_ID}", source_id)
-                  .replace("{CHUNK_ID}", chunk_id)
-                  .replace("{SOURCE_URL}", source_url or "")
-                  .replace("{TEXT}", text))
+            agent = initialize_agent(
+                tools=tools,
+                llm=llm,
+                agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+                verbose=True,
+                max_iterations=25,
+                handle_parsing_errors=True,
+            )
 
-        _ = agent.invoke({"input": prompt})
-    finally:
-        mcp.close()
+            prompt = (PROMPT_TMPL
+                      .replace("{SOURCE_ID}", source_id)
+                      .replace("{CHUNK_ID}", chunk_id)
+                      .replace("{SOURCE_URL}", source_url or "")
+                      .replace("{TEXT}", text))
+
+            logger.info(f"[agent] invoking for doc={source_id} {chunk_id}")
+            result = agent.invoke({"input": prompt})
+            logger.info(f"[agent] done for doc={source_id} {chunk_id}; keys={list(result.keys()) if isinstance(result, dict) else type(result)}")
+        finally:
+            mcp_local.close()
+
+    candidates = [mcp_cmd, FALLBACK_MCP_CMD, "/app/.venv/bin/mcp-neo4j-memory"]
+    last_exc: Optional[Exception] = None
+    for cmd in candidates:
+        try:
+            _do_run(cmd)
+            logger.info(f"[chunk] finished doc={source_id} {chunk_id}")
+            return
+        except (TimeoutError, FileNotFoundError) as te:
+            last_exc = te
+            logger.warning(f"[mcp] init failed with '{cmd}': {te}")
+            continue
+        except Exception as ex:
+            last_exc = ex
+            logger.error(f"[agent] failure doc={source_id} {chunk_id}: {ex}")
+            break
+    if last_exc:
+        raise last_exc
 
 
 # ====================================
@@ -470,60 +490,73 @@ def run_for_chunk(mcp_cmd: str, source_id: str, chunk_id: str, source_url: str, 
 # ====================================
 
 def resolve_neo4j_host_port():
-    """
-    Resolve Neo4j host and port from the environment variables or defaults.
-    """
     host_port = _neo4j_host_port_from_url(NEO4J_URL) if NEO4J_URL else None
     return host_port or (NEO4J_HOST, NEO4J_PORT)
 
 
 def bootstrap_services():
-    """
-    Bootstrap and wait for required services: Paperless, Neo4j, and Ollama.
-    """
     wait_for_http(PAPERLESS_URL, timeout=600)
     nh, np = resolve_neo4j_host_port()
     wait_for_neo4j(nh, np, timeout=600)
     wait_for_http(f"{OLLAMA_URL}/api/tags", timeout=600)
     _ = paperless_headers()
+    logger.info("[bootstrap] Services ready.")
 
 
 def _extracted_from_prepare_document_work(doc_id):
     STATE["last_id"] = doc_id
     with contextlib.suppress(Exception):
         STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
+    logger.info(f"[state] advanced last_id={doc_id}")
     return None
 
 
 def prepare_document_work(doc: dict) -> Optional[DocumentWork]:
-    """Prepare a document processing unit or return None if it should be skipped.
-    - Skips when id <= last_id
-    - Skips and advances state when no text
-    - Skips and advances state when hash unchanged
-    """
     try:
         doc_id = int(doc.get("id", 0))
     except Exception:
         return None
 
-    if doc_id <= STATE.get("last_id", 0):
+    logger.info(f"[doc] consider id={doc_id} force={FORCE_REPROCESS}")
+    if not FORCE_REPROCESS and doc_id <= STATE.get("last_id", 0):
+        logger.info(f"[doc] skip id={doc_id} last_id={STATE.get('last_id', 0)}")
         return None
 
-    text = extract_text(doc)
+    try:
+        detailed = paperless_get_document(doc_id)
+    except Exception as exc:
+        logger.error(f"[doc] detail fetch failed id={doc_id}: {exc}")
+        return None
+
+    text = extract_text(detailed)
 
     if not text:
+        fallback = " ".join([
+            str(detailed.get("title") or ""),
+            str(detailed.get("notes") or ""),
+            str(detailed.get("original_filename") or ""),
+            str(detailed.get("created") or ""),
+        ]).strip()
+        if fallback:
+            logger.info(f"[doc] empty OCR content; using metadata fallback id={doc_id}")
+        text = fallback
+
+    if not text:
+        logger.info(f"[doc] no usable text id={doc_id}; advancing state")
         return _extracted_from_prepare_document_work(doc_id)
+
     h = hashlib.sha256(text.encode("utf-8")).hexdigest()
-    if STATE["hashes"].get(str(doc_id)) == h:
+    if not FORCE_REPROCESS and STATE["hashes"].get(str(doc_id)) == h:
+        logger.info(f"[doc] unchanged hash; skip id={doc_id}")
         return _extracted_from_prepare_document_work(doc_id)
 
     chunks = chunk_text(text)
-    source_url = str(doc.get("download_url") or "")
-    return DocumentWork(doc_id=doc_id, source_url=source_url, chunks=chunks, text_hash=h, doc=doc)
+    logger.info(f"[doc] prepared id={doc_id} chunks={len(chunks)} first_len={len(chunks[0]) if chunks else 0}")
+    source_url = str(detailed.get("download_url") or "")
+    return DocumentWork(doc_id=doc_id, source_url=source_url, chunks=chunks, text_hash=h, doc=detailed)
 
 
 def run_downstream_steps(work: DocumentWork) -> None:
-    """Run agent per chunk and optional Obsidian export."""
     for ci, ch in enumerate(work.chunks):
         source_id = str(work.doc_id)
         chunk_id = f"c{ci+1}"
@@ -544,10 +577,10 @@ def finalize_document(work: DocumentWork) -> None:
     STATE["last_id"] = work.doc_id
     with contextlib.suppress(Exception):
         STATE_PATH.write_text(json.dumps(STATE), encoding="utf-8")
+    logger.info(f"[state] saved id={work.doc_id} hash_prefix={work.text_hash[:8]}")
 
 
 def process_document(doc):
-    """Orchestrate document processing with clear SRP-compliant steps."""
     work = prepare_document_work(doc)
     if not work:
         return
@@ -561,25 +594,24 @@ def main():
         return
     try:
         bootstrap_services()
+        processed = 0
         for doc in paperless_iter():
             if STOP_EVENT.is_set():
                 logger.info("Shutdown requested during run; stopping early.")
                 break
             try:
                 process_document(doc)
+                processed += 1
             except Exception as exc:
                 logger.error(f"Failed to process document: {exc}")
+        logger.info(f"[run] completed; processed_docs={processed}")
     except Exception as exc:
         logger.critical(f"Fatal error in main: {exc}")
         raise
 
 
 def schedule_importer():
-    """
-    Schedule the main function to run periodically based on SCHEDULE_TIME (default: 5 minutes).
-    Prevent overlapping runs and support graceful shutdown.
-    """
-    schedule_time = int(os.getenv("SCHEDULE_TIME", "5"))  # Time in minutes
+    schedule_time = int(os.getenv("SCHEDULE_TIME", "5"))
 
     def _job():
         if STOP_EVENT.is_set():
@@ -606,7 +638,6 @@ STOP_EVENT = threading.Event()
 
 
 if __name__ == "__main__":
-    # Configure loguru with a rotating file handler
     LOG_FILE = os.getenv("LOG_FILE", "/data/importer.log")
     try:
         Path(LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
@@ -614,14 +645,13 @@ if __name__ == "__main__":
         pass
     logger.add(
         LOG_FILE,
-        rotation="10 MB",  # Rotate a log file after it reaches 10 MB
-        retention="10 days",  # Keep logs for 10 days
-        enqueue=True,  # Thread-safe logging
-        backtrace=True,  # Include backtrace in errors
-        diagnose=True,  # Include detailed diagnostics
+        rotation="10 MB",
+        retention="10 days",
+        enqueue=True,
+        backtrace=True,
+        diagnose=True,
     )
 
-    # Signal handlers for graceful shutdown
     def _handle_signal(signum, frame):
         logger.info(f"Received signal {signum}; requesting shutdown...")
         STOP_EVENT.set()
@@ -631,7 +661,6 @@ if __name__ == "__main__":
             signal.signal(sig, _handle_signal)
 
     try:
-        # Run the first import immediately without overlap
         if RUN_LOCK.acquire(blocking=False):
             try:
                 main()
@@ -640,7 +669,6 @@ if __name__ == "__main__":
         else:
             logger.warning("Importer already running at startup; initial run skipped.")
 
-        # Start the scheduler loop (blocks until STOP_EVENT)
         schedule_importer()
     except KeyboardInterrupt:
         logger.info("Interrupted.")
@@ -649,5 +677,4 @@ if __name__ == "__main__":
         logger.critical(f"Fatal error: {e}")
         sys.exit(1)
     finally:
-        # Final cleanup hook if needed in future (e.g., close pools)
         logger.info("Importer stopped.")
