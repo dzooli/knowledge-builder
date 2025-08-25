@@ -3,6 +3,12 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/neo4j-stack/data/databases" />
+      <excludeFolder url="file://$MODULE_DIR$/neo4j-stack/data/dbms" />
+      <excludeFolder url="file://$MODULE_DIR$/neo4j-stack/data/transactions" />
+      <excludeFolder url="file://$MODULE_DIR$/paperless/data/index" />
+      <excludeFolder url="file://$MODULE_DIR$/paperless/data/log" />
+      <excludeFolder url="file://$MODULE_DIR$/paperless/media/documents" />
     </content>
     <orderEntry type="jdk" jdkName="uv (knowledge-builder)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

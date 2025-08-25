@@ -360,4 +360,4 @@ inbox/
 bootstrap/*
 !bootstrap/.gitkeep
 
-.env.*.local
+.env.*.local!/bootstrap/get_token.py

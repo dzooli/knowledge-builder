@@ -1,73 +1,77 @@
 services:
   paperless:
     image: ghcr.io/paperless-ngx/paperless-ngx:latest
-    container_name: paperless
     environment:
-      PAPERLESS_OCR_LANGUAGE: "hun+eng"
+      PAPERLESS_OCR_LANGUAGE: "eng"
+      PAPERLESS_OCR_LANGUAGES: "eng hun"
       PAPERLESS_TIME_ZONE: "Europe/Budapest"
       PAPERLESS_ADMIN_USER: "admin"
       PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD}
+      PAPERLESS_REDIS: "redis://redis:6379"
     volumes:
       - ./paperless/data:/usr/src/paperless/data
       - ./paperless/media:/usr/src/paperless/media
-      - ./inbox:/usr/src/paperless/consume
+      - ${PAPERLESS_INBOX}:/usr/src/paperless/consume
       - ./bootstrap:/bootstrap
     ports:
       - "8900:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
     restart: unless-stopped
 
   ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
+    build:
+      context: ./ollama
+    gpus: all
+    environment:
+      NVIDIA_VISIBLE_DEVICES: "all"
     volumes:
       - ollama:/root/.ollama
     ports:
-      - "11434:11434"
+      - "11435:11434"
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
-      timeout: 3s
+      timeout: 5s
       retries: 60
     restart: unless-stopped
 
-  ollama-model-init:
-    image: ollama/ollama:latest
-    container_name: ollama-model-init
-    environment:
-      OLLAMA_HOST: "http://ollama:11434"
-    command: ["sh","-lc","\n      echo 'Waiting for Ollama...';\n      for i in $$(seq 1 120); do ollama list >/dev/null 2>&1 && break || sleep 2; done;\n      echo 'Pulling base model (llama3.1:8b)...';\n      ollama pull llama3.1:8b || true;\n      echo 'Building custom profile (temperature=0) -> llama31-kb';\n      ollama create llama31-kb -f /modelfile/Modelfile || true;\n      echo 'Done: llama31-kb';\n    "]
-    volumes:
-      - ollama:/root/.ollama
-      - ./modelfile:/modelfile:ro
-    depends_on:
-      ollama:
-        condition: service_healthy
-    restart: "no"
-
-  # Token bootstrap via API; non-blocking for the stack
+  # Token bootstrap via Django inside the container; avoids CSRF
   paperless-token-init:
-    image: curlimages/curl:8.9.1
-    container_name: paperless-token-init
+    build:
+      context: ./paperless-token
     environment:
       PAPERLESS_ADMIN_USER: "admin"
       PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD}
-      PAPERLESS_URL: "http://paperless:8000"
       TOKEN_PATH: "/bootstrap/paperless_token.txt"
-      # how long to try (seconds)
       BOOTSTRAP_TIMEOUT: "360"
+      DB_PATH: "/usr/src/paperless/data/db.sqlite3"
+      PAPERLESS_REDIS: "redis://redis:6379"
     volumes:
+      - ./paperless/data:/usr/src/paperless/data
       - ./bootstrap:/bootstrap
-    command: ["sh","-lc","\n      set -euo pipefail;\n      echo 'Waiting for Paperless...';\n      for i in $$(seq 1 180); do curl -sf \"$$PAPERLESS_URL\" && break || sleep 2; done;\n      echo 'Requesting API token...';\n      start=$$(date +%s);\n      token='';\n      while :; do\n        for EP in /api/token/ /api/api-token-auth/; do\n          resp=$$(curl -sf -X POST -H 'Content-Type: application/json' \\\n            -d '{\"username\":\"'\"'$$PAPERLESS_ADMIN_USER'\"'\"\",\"password\":\"'\"'$$PAPERLESS_ADMIN_PASSWORD'\"'\"\"}' \\\n            \"$$PAPERLESS_URL$$EP\" || true);\n          token=$$(printf '%s' \"$$resp\" | awk -F'\"token\"[: ]*\"' '{print $2}' | awk -F'\"' '{print $1}');\n          if [ -n \"$$token\" ]; then\n            printf '%s' \"$$token\" > \"$$TOKEN_PATH\";\n            echo 'Token saved:' \"$$TOKEN_PATH\";\n            exit 0;\n          fi\n        done\n        now=$$(date +%s); elapsed=$$((now-start));\n        [ \"$$elapsed\" -ge \"$$BOOTSTRAP_TIMEOUT\" ] && break;\n        sleep 3;\n      done\n      echo 'Token not available now. Writing PENDING marker and exiting 0 (stack continues).';\n      echo -n 'PENDING' > \"$$TOKEN_PATH\";\n      exit 0;\n    "]
     depends_on:
       paperless:
         condition: service_started
+      redis:
+        condition: service_healthy
     restart: "no"
 
   importer:
     build:
       context: .
       dockerfile: importer/Dockerfile
-    container_name: importer
     environment:
       PAPERLESS_URL: "http://paperless:8000"
       PAPERLESS_TOKEN_FILE: "/bootstrap/paperless_token.txt"
@@ -102,8 +106,6 @@ services:
         condition: service_completed_successfully
       ollama:
         condition: service_healthy
-      ollama-model-init:
-        condition: service_completed_successfully
     restart: unless-stopped
 
 volumes:

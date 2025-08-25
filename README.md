@@ -2,7 +2,7 @@
 
 ## Description
 
-This project is an **automated ETL pipeline**: knowledge is extracted from documents OCR-ed by Paperless-ngx using the *
+This project is an **automated ETL pipeline**: knowledge is extracted from documents OCR‑ed by Paperless‑ngx using the *
 *Ollama** LLM, then loaded into a **Neo4j** graph via the official **Neo4j Memory MCP** server. The loading is performed
 by a **LangChain Agent**; tool calls are **delegated to the LLM itself**. Optionally, the raw text can also be exported
 to an **Obsidian** vault. The importer now includes a **scheduler** for periodic execution, **graceful shutdown with no
@@ -10,8 +10,11 @@ overlapping runs**, and **verbose logging** using `loguru`.
 
 ## ✨ Components
 
-- **Paperless-ngx** – OCR and storage for screenshots/documents
-- **Ollama** – local LLM (`llama31-kb`, *temperature=0* profile)
+- **Paperless‑ngx** – OCR and storage for screenshots/documents
+- **paperless‑token (new)** – builds a tiny image from Paperless and automatically creates/gets the DRF API token,
+  saving it to a shared file
+- **Ollama** – local LLM (`llama31-kb`, profile with temperature=0) built from a custom Dockerfile; the model is baked
+  at image build time
 - **Importer (LangChain Agent)** – Paperless → chunk → prompt → LLM → Memory MCP tool calls (STDIO) → Neo4j
 - **Neo4j** – graph database + web UI (Browser)
 - **Memory MCP server** – `mcp-neo4j-memory` (STDIO, full toolset)
@@ -20,107 +23,135 @@ overlapping runs**, and **verbose logging** using `loguru`.
 
 ## 📂 Directory Structure
 
-    neo4j-stack/
-      docker-compose.yml    # Neo4j separate Compose
-    paperless/             # Paperless-ngx
-        data/              # Paperless data
-        media/             # Paperless media
-    importer/
-      src/                 # Python source code
-        importer.py        # main Python script
-      Dockerfile
-    modelfile/Modelfile    # Ollama model profile (temperature=0)
-    bootstrap/             # Paperless token goes here
-    data/                  # state (state.json), Obsidian export
-    docker-compose.yml     # Paperless, Ollama, Importer
+```
+neo4j-stack/
+  docker-compose.yml      # Neo4j separate Compose
+paperless/                # Paperless-ngx data & media
+  data/
+  media/
+importer/
+  src/
+    importer.py           # main Python script
+  Dockerfile
+ollama/
+  Dockerfile              # builds Ollama image and pre-creates `llama31-kb`
+  Modelfile               # FROM llama3.1:8b; PARAMETER temperature 0
+paperless-token/
+  Dockerfile              # minimal image derived from Paperless to create/get token
+  entrypoint.sh           # waits for DB; runs manage.py drf_create_token; fallback script
+bootstrap/
+  get_token.py            # Django fallback (create/get DRF token)
+  paperless_token.txt     # shared file: token written here
+  token_init.sh           # legacy: not used with paperless-token image
+data/
+  state.json, importer.log, obsidian/
+inbox/                    # mounted into Paperless consume directory
+docker-compose.yml        # Paperless, paperless-token, Ollama, Importer
+```
 
 ## ✅ Prerequisites
 
 - Docker + Docker Compose
-- Free ports: `7474`, `7687`, `8900`, `11434`
+- Free ports: `7474`, `7687`, `8900`, `11435` (Ollama is exposed on 11435→11434)
+- GPU (for Ollama): enable GPU support in Docker (e.g., WSL2 + NVIDIA on Windows, nvidia-container-toolkit on Linux)
 - On Linux, Compose already includes: `extra_hosts: host.docker.internal:host-gateway`
-
 
 ## 🚀 Quickstart
 
-1\) **Start Neo4j**  
-Ensure `NEO4J_USERNAME` and `NEO4J_PASSWORD` from the root `.env` are used by `neo4j-stack`.  
-**Recommended:**
+1) Start Neo4j  
+   Ensure `NEO4J_USERNAME` and `NEO4J_PASSWORD` from the root `.env` are used by `neo4j-stack`.
 
-   ```bash
-   docker compose --env-file ./.env -f neo4j-stack/docker-compose.yml up -d
-   ```
+```bash
+# from project root
+docker compose --env-file ./.env -f neo4j-stack/docker-compose.yml up -d
+```
 
-**Alternative:**
-
-   ```bash
-   cd neo4j-stack
-   docker compose --env-file ../.env up -d
-   ```
-
-Neo4j UI: [http://localhost:7474](http://localhost:7474)  
+Neo4j UI: http://localhost:7474  
 Login: user=`NEO4J_USERNAME`, pass=`NEO4J_PASSWORD`
 
-2\) **Start KB stack** (Paperless, Ollama, Importer)
+2) Start the KB stack (Paperless, token, Ollama, Importer)
 
-   ```bash
-   cd <PROJECT_ROOT>
-   docker compose up -d --build
-   ```
+```bash
+docker compose up -d --build
+```
 
-3\) **Paperless token**  
-On first start, `paperless-token-init` requests an API token. If it fails, it creates:
+3) Token bootstrap (automated)  
+   The `paperless-token-init` service builds a tiny image from Paperless and:
 
-   ```bash
-   ./bootstrap/paperless_token.txt  # content: PENDING
-   ```
+- waits for the Paperless DB file,
+- runs `python3 manage.py drf_create_token $PAPERLESS_ADMIN_USER`,
+- robustly extracts the token, with fallback to a Django helper script,
+- writes it to:
 
-Open Paperless UI ([http://localhost:8900](http://localhost:8900)) → *My Profile → Generate token*  
-Enter the token in the file. The Importer will detect it within 5 seconds and start.
+```
+./bootstrap/paperless_token.txt
+```
+
+Check logs and the file:
+
+```bash
+docker compose logs -f paperless-token-init
+cat ./bootstrap/paperless_token.txt
+```
+
+Importer reads this file automatically.
+
+If the file contains `PENDING`, wait a bit for Paperless to finish migrations and restart the token job:
+
+```bash
+docker compose restart paperless-token-init
+```
 
 ## 🔧 Configuration (key envs)
 
 - Root .env (shared)
 
-      NEO4J_USERNAME=neo4j
-      NEO4J_PASSWORD=<SET IT>
+```
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=<SET IT>
+PAPERLESS_INBOX=./inbox
+```
 
-- Paperless
+- Paperless (Compose sets these by default; ensure admin cred matches your first-run)
 
-      PAPERLESS_ADMIN_USER=admin
-      PAPERLESS_ADMIN_PASSWORD=<DEFAULT_AS_IN_PAPERLESS> # (first start)
-      PAPERLESS_URL=http://paperless:8000
-      PAPERLESS_TOKEN_FILE=/bootstrap/paperless_token.txt
+```
+PAPERLESS_ADMIN_USER=admin
+PAPERLESS_ADMIN_PASSWORD=<DEFAULT_AS_IN_PAPERLESS>
+PAPERLESS_REDIS=redis://redis:6379
+```
+
+- Importer → Paperless & token file
+
+```
+PAPERLESS_URL=http://paperless:8000
+PAPERLESS_TOKEN_FILE=/bootstrap/paperless_token.txt
+```
 
 - Neo4j (importer connection)
 
-      NEO4J_URL=bolt://host.docker.internal:7687
-      # Compatibility also supported by importer: NEO4J_URI
+```
+NEO4J_URL=bolt://host.docker.internal:7687
+# Compatibility also supported by importer: NEO4J_URI
+```
 
 - Ollama
 
-      # Profile name created by model init job
-      OLLAMA_MODEL=llama31-kb
+```
+# Model name created during the Ollama image build
+OLLAMA_MODEL=llama31-kb
+# Host access: http://127.0.0.1:11435 (container: http://ollama:11434)
+```
 
 - Importer
 
-      MEMORY_MCP_CMD=mcp-neo4j-memory
-      STATE_PATH=/data/state.json
-      VAULT_DIR=/data/obsidian
-      OBSIDIAN_EXPORT=true
-      SCHEDULE_TIME=5
-      CHUNK_SIZE=5000
-      LOG_FILE=/data/importer.log
-
-- **Importer / pyproject.toml dependencies** (add if missing)
-
-      httpx
-      pydantic
-      langchain
-      langchain-community
-      mcp-neo4j-memory
-      schedule
-      loguru
+```
+MEMORY_MCP_CMD=mcp-neo4j-memory
+STATE_PATH=/data/state.json
+VAULT_DIR=/data/obsidian
+SCHEDULE_TIME=5
+CHUNK_SIZE=5000
+LOG_FILE=/data/importer.log
+```
 
 ## 📊 Program Operation
 
@@ -205,10 +236,10 @@ flowchart TD
     style ZZ fill: #ffebee
 ```
 
-### Key Operational Features:
+### Key Operational Features
 
 - **Service Bootstrap**: Waits for all required services (Paperless, Neo4j, Ollama) before starting
-- **Token Management**: Handles Paperless API token from file with automatic detection
+- **Token Management**: Automated by `paperless-token-init` (DRF token file at `bootstrap/paperless_token.txt`)
 - **Scheduled Execution**: Runs every 5 minutes (configurable) with overlap prevention
 - **Document Processing**: Tracks state to avoid reprocessing unchanged documents
 - **Chunk Processing**: Splits large documents into manageable chunks (5000 chars default)
@@ -217,60 +248,42 @@ flowchart TD
 - **Thread Safety**: Uses locks to prevent concurrent runs and thread-safe logging
 - **Error Resilience**: Continues processing other documents even if individual ones fail
 
-The system maintains idempotency through document hashing and state tracking, ensuring efficient incremental processing
-of new content.
-
-## 🧠 How the Importer Works
-
-1. Paperless API: list new/modified documents
-2. Extract text, chunk into 5000 characters
-3. **User-prompt** (no system-prompt) → Ollama (`llama31-kb`)
-4. The LLM **directly** calls Memory MCP tools (LangChain StructuredTool wrap):
-    - `find_nodes`, `search_nodes`, `read_graph`
-    - `create_entities`, `delete_entities`
-    - `create_relations`, `delete_relations`
-    - `add_observations`, `delete_observations`
-5. For every created item, pass: `source_id`, `chunk_id`, `source_url`
-6. Optional: Obsidian export if enabled (`data/obsidian/`)
-7. **Scheduler**: Runs the importer periodically (default: every 5 minutes) with no overlapping runs
-8. **Logging**: Logs are written to `importer.log` (rotation after 10 MB, retention 10 days, thread-safe). You can set
-   `LOG_FILE` (default `/data/importer.log`).
-9. **Graceful shutdown**: SIGINT/SIGTERM stop scheduling and finish the current run cleanly
-
 ## 🔍 Testing
 
 - **Logs**:
 
-      docker compose logs -f importer
+```bash
+docker compose logs -f importer
+```
 
-  On startup, you will see: *Neo4j available*, MCP *tools/list*, then the ReAct agent steps and tool calls.
-
-- **MCP client binary** in the container:
-
-      docker exec -it importer bash
-      which mcp-neo4j-memory
-      NEO4J_URL="bolt://host.docker.internal:7687" \
-      NEO4J_USERNAME="neo4j" \
-      NEO4J_PASSWORD="testpass" \
-      mcp-neo4j-memory
+On startup, you will see: *Neo4j available*, MCP *tools/list*, then the ReAct agent steps and tool calls.
 
 ## 🧯 Troubleshooting
 
 - **`paperless_token.txt` = PENDING**  
-  Generate a new token in the Paperless UI and write it to the file. The Importer will automatically proceed.
+  Paperless may still be migrating. Wait and then:
 
-- **Neo4j not available**  
-  Check if `neo4j-stack` is running. On Linux, `extra_hosts: host.docker.internal:host-gateway` is important.
+```bash
+docker compose restart paperless-token-init
+```
+
+- **No token logs**  
+  Check the token service logs:
+
+```bash
+docker compose logs -f paperless-token-init
+```
 
 - **Ollama model not created**  
-  Check the `ollama-model-init` logs; the profile name is `llama31-kb`.
+  The model is baked into the custom image during build. Rebuild Ollama if needed:
 
-- **Tool errors / missing tools**  
-  The log line *Available MCP tools* shows the tools advertised by the server. If there is a version mismatch, update
-  the `mcp-neo4j-memory` package.
+```bash
+docker compose build ollama && docker compose up -d ollama
+```
+
+- **Neo4j not available**  
+  Ensure `neo4j-stack` is running and `NEO4J_*` creds are correct.
 
 ## 📜 License
 
 MIT
-
-

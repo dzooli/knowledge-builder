@@ -317,7 +317,7 @@ def wait_for_http(url: str, timeout: int = 240):
         with contextlib.suppress(Exception):
             with httpx.Client(timeout=5) as client:
                 r = client.get(url)
-                if r.status_code == 200:
+                if 200 <= r.status_code < 500:
                     logger.info(f"[bootstrap] Available: {url}")
                     return
         time.sleep(2)
