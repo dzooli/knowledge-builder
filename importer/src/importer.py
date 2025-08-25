@@ -736,7 +736,9 @@ def _ensure_evidence_links(entity_names: List[str], source_id: str, chunk_id: st
     except Exception as exc:
         logger.warning(f"[agent] evidence entity upsert failed: {exc}")
     # Create evidence relations from all entities to the evidence
-    rels = [{"source": en, "relationType": "evidence", "target": evidence_name} for en in entity_names if isinstance(en, str) and en]
+    # Exclude self-link if the evidence entity name appears in the list
+    sources = [en for en in entity_names if isinstance(en, str) and en and en != evidence_name]
+    rels = [{"source": en, "relationType": "evidence", "target": evidence_name} for en in sources]
     if not rels:
         return
     try:
