@@ -6,9 +6,12 @@ requires-python = ">=3.13"
 dependencies = [
     "langchain>=0.3.27",
     "langchain-community>=0.3.27",
+    "langchain-mcp-adapters>=0.1.9",
+    "langchain-ollama>=0.2.0",
+    "langgraph>=0.2.0",
     "mcp-neo4j-memory>=0.3.0",
     "pydantic>=2.11.7",
     "httpx>=0.28.1",
     "schedule>=1.2.0",
-    "loguru>=0.7.0"
+    "loguru>=0.7.0",
 ]
