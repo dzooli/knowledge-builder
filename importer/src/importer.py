@@ -796,7 +796,7 @@ def run_for_chunk(source_id: str, chunk_id: str, source_url: str, text: str):
                         if not str(content).lower().startswith("error"):
                             wrote = True
                     # Collect touched entities
-                    try:
+                    with contextlib.suppress(Exception):
                         raw = m.content
                         data = None
                         if isinstance(raw, str):
@@ -813,8 +813,6 @@ def run_for_chunk(source_id: str, chunk_id: str, source_url: str, text: str):
                             for r in data:
                                 if isinstance(r, dict):
                                     relations_to_retry.append(r)
-                    except Exception:
-                        pass
             except Exception:
                 logger.info(f"[agent] msg#{i} (unparsable)")
 
@@ -855,7 +853,7 @@ def run_for_chunk(source_id: str, chunk_id: str, source_url: str, text: str):
                             if not str(content).lower().startswith("error"):
                                 wrote = True
                         # Collect touched entities from fallback
-                        try:
+                        with contextlib.suppress(Exception):
                             raw = m.content
                             data = None
                             if isinstance(raw, str):
@@ -871,8 +869,6 @@ def run_for_chunk(source_id: str, chunk_id: str, source_url: str, text: str):
                                 for r in data:
                                     if isinstance(r, dict):
                                         relations_to_retry.append(r)
-                        except Exception:
-                            pass
                 except Exception:
                     logger.info(f"[agent] fb-msg#{i} (unparsable)")
             # Try suggested calls from fallback too
