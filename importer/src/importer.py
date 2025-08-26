@@ -228,125 +228,284 @@ def _tools_by_name_sync() -> Dict[str, BaseTool]:
     return {t.name: t for t in tools}
 
 
-def _normalize_params(tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
-    def norm_name(v: Any) -> Any:
-        if isinstance(v, dict) and "name" in v:
-            return v.get("name")
-        return v
+def _norm_name(v: Any) -> Any:
+    """Extract name from dict or return value as-is"""
+    return v.get("name") if isinstance(v, dict) and "name" in v else v
 
+
+def _extract_relation_entity_names(r: Dict[str, Any]) -> List[str]:
+    """Extract entity names from a relation dict (source and target)"""
+    names = []
+    if isinstance(r, dict):
+        s = r.get("source")
+        t = r.get("target")
+        if isinstance(s, dict):
+            s = s.get("name")
+        if isinstance(t, dict):
+            t = t.get("name")
+        if isinstance(s, str):
+            names.append(s)
+        if isinstance(t, str):
+            names.append(t)
+    return names
+
+
+def _normalize_single_relation(r: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize a single relation dictionary"""
+    rr = dict(r)
+    if "subject" in rr and "source" not in rr:
+        rr["source"] = _norm_name(rr.pop("subject"))
+    if "object" in rr and "target" not in rr:
+        rr["target"] = _norm_name(rr.pop("object"))
+    if "predicate" in rr and "relationType" not in rr:
+        rr["relationType"] = rr.pop("predicate")
+    rr["source"] = _norm_name(rr.get("source"))
+    rr["target"] = _norm_name(rr.get("target"))
+    return rr
+
+
+def _normalize_create_relations_params(p: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize parameters for create_relations tool"""
+    rels = p.get("relations")
+    if not rels:
+        maybe = {k: p.get(k) for k in ("source", "predicate", "relationType", "target", "when", "evidence", "confidence", "sourceId", "chunkId", "sourceUrl") if k in p}
+        if any(maybe.values()):
+            rels = [maybe]
+
+    out: List[Dict[str, Any]] = []
+    out.extend(
+        _normalize_single_relation(r)
+        for r in rels or []
+        if isinstance(r, dict)
+    )
+    result = {k: v for k, v in p.items() if k != "relations"}
+    result["relations"] = out
+    return result
+
+
+def _normalize_add_observations_params(p: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize parameters for add_observations tool"""
+    obs = _extract_observations(p)
+    out = [_normalize_observation(o) for o in obs or [] if isinstance(o, dict)]
+    result = {k: v for k, v in p.items() if k not in {"observations", "observation", "text"}}
+    result["observations"] = out
+    return result
+
+
+def _extract_observations(p: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Extract observations list from parameters"""
+    if obs := p.get("observations"):
+        return obs
+
+    if "observation" in p and isinstance(p["observation"], dict):
+        return [p["observation"]]
+
+    if any(k in p for k in ("entityName", "text", "observations")):
+        observations_list = _build_observations_list(p)
+        return [{"entityName": p.get("entityName"), "observations": observations_list}]
+
+    return []
+
+
+def _build_observations_list(p: Dict[str, Any]) -> List[str]:
+    """Build observations list from parameters"""
+    if isinstance(p.get("observations"), list):
+        return [str(x) for x in p["observations"]]
+    elif "text" in p and p["text"]:
+        return [str(p["text"])]
+    return []
+
+
+def _normalize_observation(o: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize a single observation dictionary"""
+    oo = dict(o)
+    
+    # Normalize entity name field
+    entity_name_mappings = [
+        ("entity", "entityName"),
+        ("entity_name", "entityName"),
+        ("name", "entityName")
+    ]
+    
+    for old_key, new_key in entity_name_mappings:
+        if old_key in oo and new_key not in oo:
+            oo[new_key] = _norm_name(oo.pop(old_key))
+    
+    # Normalize observations field
+    if "observations" not in oo or not isinstance(oo.get("observations"), list):
+        if "text" in oo and oo["text"]:
+            oo["observations"] = [str(oo.pop("text"))]
+        else:
+            oo["observations"] = []
+    
+    return oo
+
+
+def _extract_entities_from_params(p: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Extract entities list from various parameter formats"""
+    if entities := p.get("entities"):
+        return entities
+
+    # Try to extract from single entity
+    if "entity" in p and isinstance(p["entity"], dict):
+        return [p["entity"]]
+
+    # Try to extract from name/type fields
+    if any(k in p for k in ("name", "type")):
+        entity = {k: p.get(k) for k in ("name", "type") if k in p}
+        return [entity]
+
+    # Try to extract from observations
+    if _has_valid_observations(p):
+        first_observation = p["observations"][0]
+        entity = {
+            "name": first_observation["entityName"], 
+            "type": p.get("type", "Thing")
+        }
+        return [entity]
+
+    return []
+
+
+def _normalize_create_entities_params(p: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize parameters for the create_entities tool"""
+    entities = _extract_entities_from_params(p)
+    normalized_entities = _normalize_entity_list(entities)
+
+    result = {k: v for k, v in p.items() if k != "entities"}
+    result["entities"] = normalized_entities
+    return result
+
+
+def _has_valid_observations(p: Dict[str, Any]) -> bool:
+    """Check if parameters contain valid observations with entity name"""
+    observations = p.get("observations")
+    if not isinstance(observations, list) or not observations:
+        return False
+    
+    first_observation = observations[0]
+    return isinstance(first_observation, dict) and "entityName" in first_observation
+
+
+def _normalize_entity_list(entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Normalize a list of entity dictionaries"""
+    normalized = []
+
+    for entity in entities or []:
+        if not isinstance(entity, dict):
+            continue
+
+        if normalized_entity := _normalize_single_entity(entity):
+            normalized.append(normalized_entity)
+
+    return normalized
+
+
+def _normalize_single_entity(entity: Dict[str, Any]) -> dict[str, Any] | None:
+    """Normalize a single entity dictionary"""
+    # Extract only allowed fields
+    normalized = {k: v for k, v in entity.items() if k in {"name", "type", "observations"}}
+    
+    # Skip entities without names
+    if "name" not in normalized:
+        return None
+    
+    # Ensure observations is a list
+    if "observations" not in normalized or not isinstance(normalized.get("observations"), list):
+        normalized["observations"] = []
+    
+    return normalized
+
+
+def _normalize_params(tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize parameters for different tools"""
     p = dict(params or {})
-    if tool_name == "create_relations":
-        rels = p.get("relations")
-        if not rels:
-            maybe = {k: p.get(k) for k in ("source", "predicate", "relationType", "target", "when", "evidence", "confidence", "sourceId", "chunkId", "sourceUrl") if k in p}
-            if any(maybe.values()):
-                rels = [maybe]
-        out: List[Dict[str, Any]] = []
-        for r in rels or []:
-            if not isinstance(r, dict):
-                continue
-            rr = dict(r)
-            if "subject" in rr and "source" not in rr:
-                rr["source"] = norm_name(rr.pop("subject"))
-            if "object" in rr and "target" not in rr:
-                rr["target"] = norm_name(rr.pop("object"))
-            if "predicate" in rr and "relationType" not in rr:
-                rr["relationType"] = rr.pop("predicate")
-            rr["source"] = norm_name(rr.get("source"))
-            rr["target"] = norm_name(rr.get("target"))
-            out.append(rr)
-        p = {k: v for k, v in p.items() if k != "relations"}
-        p["relations"] = out
-    elif tool_name == "add_observations":
-        obs = p.get("observations")
-        if not obs:
-            if "observation" in p and isinstance(p["observation"], dict):
-                obs = [p["observation"]]
-            elif any(k in p for k in ("entityName", "text", "observations")):
-                # Build from flat fields; prefer observations if provided, else wrap text
-                observations_list = []
-                if isinstance(p.get("observations"), list):
-                    observations_list = [str(x) for x in p["observations"]]
-                elif "text" in p and p["text"]:
-                    observations_list = [str(p["text"])]
-                item = {"entityName": p.get("entityName"), "observations": observations_list}
-                obs = [item]
-        out2: List[Dict[str, Any]] = []
-        for o in obs or []:
-            if not isinstance(o, dict):
-                continue
-            oo = dict(o)
-            if "entity" in oo and "entityName" not in oo:
-                oo["entityName"] = norm_name(oo.pop("entity"))
-            if "entity_name" in oo and "entityName" not in oo:
-                oo["entityName"] = norm_name(oo.pop("entity_name"))
-            if "name" in oo and "entityName" not in oo:
-                oo["entityName"] = norm_name(oo.pop("name"))
-            # Ensure observations list exists; derive from text if needed
-            if "observations" not in oo or not isinstance(oo.get("observations"), list):
-                if "text" in oo and oo["text"]:
-                    oo["observations"] = [str(oo.pop("text"))]
-                else:
-                    oo["observations"] = []
-            out2.append(oo)
-        p = {k: v for k, v in p.items() if k not in {"observations", "observation", "text"}}
-        p["observations"] = out2
-    elif tool_name == "create_entities":
-        ents = p.get("entities")
-        if not ents:
-            if "entity" in p and isinstance(p["entity"], dict):
-                ents = [p["entity"]]
-            elif any(k in p for k in ("name", "type")):
-                item = {k: p.get(k) for k in ("name", "type") if k in p}
-                ents = [item]
-            elif "observations" in p and isinstance(p["observations"], list) and p["observations"]:
-                first = p["observations"][0]
-                if isinstance(first, dict) and "entityName" in first:
-                    ents = [{"name": first["entityName"], "type": p.get("type", "Thing")}]
-        out3: List[Dict[str, Any]] = []
-        for e in ents or []:
-            if not isinstance(e, dict):
-                continue
-            ee = {k: v for k, v in e.items() if k in {"name", "type", "observations"}}
-            if "name" in ee:
-                if "observations" not in ee or not isinstance(ee.get("observations"), list):
-                    ee["observations"] = []
-                out3.append(ee)
-        p = {k: v for k, v in p.items() if k != "entities"}
-        p["entities"] = out3
-    return p
+
+    normalizers = {
+        "create_relations": _normalize_create_relations_params,
+        "add_observations": _normalize_add_observations_params,
+        "create_entities": _normalize_create_entities_params,
+    }
+    
+    normalizer = normalizers.get(tool_name)
+    return normalizer(p) if normalizer else p
+
+
+def _try_tool_invocation_methods(tool: BaseTool, params: Dict[str, Any]) -> Any:
+    """Try different invocation methods for a tool in order of preference."""
+    # Try async invoke first (preferred for StructuredTool)
+    result = _try_async_invoke(tool, params)
+    if result is not None:
+        return result
+
+    # Try sync invoke
+    result = _try_sync_invoke(tool, params)
+    if result is not None:
+        return result
+
+    # Try legacy run method
+    result = _try_legacy_run(tool, params)
+    return result if result is not None else _try_callable_fallback(tool, params)
+
+
+def _try_async_invoke(tool: BaseTool, params: Dict[str, Any]) -> Any:
+    """Try to invoke the tool using async ainvoke method."""
+    if not hasattr(tool, 'ainvoke'):
+        return None
+    
+    try:
+        import asyncio
+        return asyncio.run(tool.ainvoke(params))
+    except Exception:
+        return None
+
+
+def _try_sync_invoke(tool: BaseTool, params: Dict[str, Any]) -> Any:
+    """Try to invoke the tool using sync invoke method."""
+    if not hasattr(tool, 'invoke'):
+        return None
+    
+    try:
+        return tool.invoke(params)
+    except Exception as exc:
+        # If sync invoke fails with async complaint, try async
+        if "async" in str(exc).lower() or "await" in str(exc).lower():
+            return _try_async_invoke(tool, params)
+        return None
+
+
+def _try_legacy_run(tool: BaseTool, params: Dict[str, Any]) -> Any:
+    """Try to invoke the tool using legacy run method."""
+    if not hasattr(tool, 'run'):
+        return None
+    
+    try:
+        return tool.run(**params)
+    except Exception:
+        return None
+
+
+def _try_callable_fallback(tool: BaseTool, params: Dict[str, Any]) -> Any:
+    """Try to invoke the tool as a callable."""
+    if not callable(tool):
+        raise RuntimeError(f"Tool '{tool}' cannot be invoked with any known method")
+
+    try:
+        return tool(**params)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to invoke tool '{tool}': {exc}") from exc
 
 
 def _invoke_tool_by_name(name: str, params: Dict[str, Any]) -> Any:
-    tools_by_name = _tools_by_name_sync()
-    tool = tools_by_name.get(name)
-    if not tool:
-        raise RuntimeError(f"Unknown tool: {name}")
-    norm = _normalize_params(name, params or {})
-    # Try common invocation paths without mutating tool
-    # Prefer async if available (StructuredTool often requires ainvoke)
-    if hasattr(tool, "ainvoke") and callable(getattr(tool, "ainvoke")):
-        return asyncio.run(tool.ainvoke(norm))
-    # Then try sync invoke, falling back to async if it complains
-    if hasattr(tool, "invoke") and callable(getattr(tool, "invoke")):
-        try:
-            return tool.invoke(norm)
-        except Exception:
-            if hasattr(tool, "ainvoke") and callable(getattr(tool, "ainvoke")):
-                return asyncio.run(tool.ainvoke(norm))
-            raise
-    # Legacy run()
-    if hasattr(tool, "run") and callable(getattr(tool, "run")):
-        try:
-            return tool.run(norm)
-        except Exception:
-            if hasattr(tool, "ainvoke") and callable(getattr(tool, "ainvoke")):
-                return asyncio.run(tool.ainvoke(norm))
-            raise
-    # Callable fallback
-    if hasattr(tool, "__call__") and callable(getattr(tool, "__call__")):
-        return tool(norm)
-    raise RuntimeError(f"Tool {name} is not invokable via known methods")
+    """Invoke a tool by name with the given parameters."""
+    tools = _tools_by_name_sync()
+    if name not in tools:
+        raise ValueError(f"Tool '{name}' not found")
+
+    tool = tools[name]
+    normalized_params = _normalize_params(name, params)
+
+    return _try_tool_invocation_methods(tool, normalized_params)
 
 
 # ====================================
@@ -482,121 +641,178 @@ def _strip_code_fences(s: str) -> str:
     return re.sub(r"```[a-zA-Z]*\s*\r?\n|```", "", s, flags=re.MULTILINE)
 
 
-def _extract_tool_calls(text: str) -> List[Dict[str, Any]]:
-    calls: List[Dict[str, Any]] = []
-    if not text:
-        return calls
-    cleaned = _strip_code_fences(text)
+def _is_valid_tool_call(obj: Any) -> bool:
+    """Check if an object is a valid tool call with name and parameters."""
+    return isinstance(obj, dict) and "name" in obj and "parameters" in obj
 
-    # Try direct JSON parse (array or object)
+
+def _extract_json_object_at_position(s: str, start_pos: int) -> Optional[tuple[str, int]]:
+    """Extract a complete JSON object starting at the given position."""
+    depth = 0
+    i = start_pos + 1  # Skip opening brace
+    in_string = False
+    escaped = False
+
+    while i < len(s):
+        char = s[i]
+
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '{':
+            depth += 1
+        elif char == '}':
+            if depth == 0:
+                return s[start_pos:i+1], i
+            else:
+                depth -= 1
+
+        elif char == '"':
+            in_string = True
+        i += 1
+
+    return None
+
+
+def _iter_json_objects(s: str):
+    """Yield JSON objects from string using balanced brace scanning."""
+    i = 0
+    n = len(s)
+
+    while i < n:
+        if s[i] == '{' and (
+            json_obj := _extract_json_object_at_position(s, i)
+        ):
+            yield json_obj[0]  # json_obj is (content, end_position)
+            i = json_obj[1] + 1
+        else:
+            i += 1
+
+
+def _extract_json_array_at_position(s: str, start_pos: int) -> Optional[str]:
+    """Extract a complete JSON array starting at the given position."""
+    depth = 0
+    i = start_pos + 1  # Skip opening bracket
+    in_string = False
+    escaped = False
+
+    while i < len(s):
+        char = s[i]
+
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '[':
+            depth += 1
+        elif char == ']':
+            if depth == 0:
+                return s[start_pos:i+1]
+            else:
+                depth -= 1
+
+        elif char == '"':
+            in_string = True
+        i += 1
+
+    return None
+
+
+def _find_top_level_array(s: str) -> Optional[str]:
+    """Find and extract the first top-level JSON array in the string."""
+    n = len(s)
+
+    for i in range(n):
+        if s[i] == '[':
+            if array_content := _extract_json_array_at_position(s, i):
+                return array_content
+    return None
+
+
+def _try_direct_json_parse(text: str) -> List[Dict[str, Any]]:
+    """Try parsing text as direct JSON (object or array)."""
     with contextlib.suppress(Exception):
-        parsed = json.loads(cleaned)
-        if isinstance(parsed, dict) and "name" in parsed and "parameters" in parsed:
+        parsed = json.loads(text)
+        
+        if _is_valid_tool_call(parsed):
             return [parsed]
+            
         if isinstance(parsed, list):
-            calls = [o for o in parsed if isinstance(o, dict) and "name" in o and "parameters" in o]
-            if calls:
-                return calls[:10]
+            valid_calls = [obj for obj in parsed if _is_valid_tool_call(obj)]
+            return valid_calls or []
+    
+    return []
 
-    # Regex-based extraction of minimal objects when params are simple (no nested braces)
-    pattern = re.compile(r"\{\s*\"name\"\s*:\s*\"[^\"]+\"\s*,\s*\"parameters\"\s*:\s*\{[^{}]*\}\s*\}", re.DOTALL)
-    for m in pattern.finditer(cleaned):
-        block = m.group(0)
+
+def _try_regex_extraction(text: str) -> List[Dict[str, Any]]:
+    """Extract tool calls using regex for simple cases (no nested braces)."""
+    pattern = re.compile(
+        r"\{\s*\"name\"\s*:\s*\"[^\"]+\"\s*,\s*\"parameters\"\s*:\s*\{[^{}]*\}\s*\}", 
+        re.DOTALL
+    )
+    
+    calls = []
+    for match in pattern.finditer(text):
+        block = match.group(0)
         with contextlib.suppress(Exception):
             obj = json.loads(block)
-            if isinstance(obj, dict) and "name" in obj and "parameters" in obj:
+            if _is_valid_tool_call(obj):
                 calls.append(obj)
-    if calls:
-        return calls[:10]
+    
+    return calls
 
-    # Fallback: balanced-brace scanner to extract JSON objects, handling nested braces and strings
-    def iter_json_objects(s: str):
-        i = 0
-        n = len(s)
-        while i < n:
-            if s[i] == '{':
-                start = i
-                depth = 0
-                i += 1
-                in_str = False
-                esc = False
-                while i < n:
-                    c = s[i]
-                    if in_str:
-                        if esc:
-                            esc = False
-                        elif c == '\\':
-                            esc = True
-                        elif c == '"':
-                            in_str = False
-                    else:
-                        if c == '"':
-                            in_str = True
-                        elif c == '{':
-                            depth += 1
-                        elif c == '}':
-                            if depth == 0:
-                                # End of this top-level object
-                                yield s[start:i+1]
-                                i += 1
-                                break
-                            depth -= 1
-                    i += 1
-            else:
-                i += 1
 
-    for block in iter_json_objects(cleaned):
+def _try_balanced_brace_extraction(text: str) -> List[Dict[str, Any]]:
+    """Extract tool calls using balanced brace scanning for nested structures."""
+    calls = []
+    for block in _iter_json_objects(text):
         with contextlib.suppress(Exception):
             obj = json.loads(block)
-            if isinstance(obj, dict) and "name" in obj and "parameters" in obj:
+            if _is_valid_tool_call(obj):
                 calls.append(obj)
-    if calls:
-        return calls[:10]
+    
+    return calls
 
-    # As a last resort: try to find a top-level JSON array and parse it
-    def find_top_level_array(s: str) -> Optional[str]:
-        i = 0
-        n = len(s)
-        while i < n:
-            if s[i] == '[':
-                start = i
-                depth = 0
-                i += 1
-                in_str = False
-                esc = False
-                while i < n:
-                    c = s[i]
-                    if in_str:
-                        if esc:
-                            esc = False
-                        elif c == '\\':
-                            esc = True
-                        elif c == '"':
-                            in_str = False
-                    else:
-                        if c == '"':
-                            in_str = True
-                        elif c == '[':
-                            depth += 1
-                        elif c == ']':
-                            if depth == 0:
-                                return s[start:i+1]
-                            depth -= 1
-                    i += 1
-            else:
-                i += 1
-        return None
 
+def _try_array_extraction(text: str) -> List[Dict[str, Any]]:
+    """Try to find and parse a top-level JSON array."""
     with contextlib.suppress(Exception):
-        arr_str = find_top_level_array(cleaned)
-        if arr_str:
+        if arr_str := _find_top_level_array(text):
             parsed_arr = json.loads(arr_str)
             if isinstance(parsed_arr, list):
-                calls = [o for o in parsed_arr if isinstance(o, dict) and "name" in o and "parameters" in o]
-                if calls:
-                    return calls[:10]
+                valid_calls = [obj for obj in parsed_arr if _is_valid_tool_call(obj)]
+                return valid_calls if valid_calls else []
 
-    return calls[:10]
+    return []
+
+
+def _extract_tool_calls(text: str) -> List[Dict[str, Any]]:
+    """Extract tool calls from text using multiple parsing strategies."""
+    if not text:
+        return []
+
+    cleaned = _strip_code_fences(text)
+
+    # Try each extraction strategy in order of preference
+    extraction_strategies = [
+        _try_direct_json_parse,
+        _try_regex_extraction,
+        _try_balanced_brace_extraction,
+        _try_array_extraction
+    ]
+
+    for strategy in extraction_strategies:
+        if calls := strategy(cleaned):
+            return calls[:10]
+
+    return []
 
 
 def _extract_relations_from_calls(calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -607,9 +823,7 @@ def _extract_relations_from_calls(calls: List[Dict[str, Any]]) -> List[Dict[str,
                 continue
             params = c.get("parameters") or {}
             items = params.get("relations") or []
-            for r in items:
-                if isinstance(r, dict):
-                    rels.append(r)
+            rels.extend(r for r in items if isinstance(r, dict))
         except Exception:
             continue
     return rels
@@ -641,8 +855,8 @@ def _execute_tool_calls(calls: List[Dict[str, Any]]) -> tuple[bool, List[str]]:
             # Collect touched entities
             if name == "create_entities":
                 ents = (params or {}).get("entities") or []
-                for e in ents:
-                    n = e.get("name") if isinstance(e, dict) else None
+                for entity in ents:
+                    n = entity.get("name") if isinstance(entity, dict) else None
                     if isinstance(n, str):
                         touched.append(n)
             elif name == "add_observations":
@@ -656,17 +870,7 @@ def _execute_tool_calls(calls: List[Dict[str, Any]]) -> tuple[bool, List[str]]:
             elif name == "create_relations":
                 rels = (params or {}).get("relations") or []
                 for r in rels:
-                    if isinstance(r, dict):
-                        s = r.get("source")
-                        t = r.get("target")
-                        if isinstance(s, dict):
-                            s = s.get("name")
-                        if isinstance(t, dict):
-                            t = t.get("name")
-                        if isinstance(s, str):
-                            touched.append(s)
-                        if isinstance(t, str):
-                            touched.append(t)
+                    touched.extend(_extract_relation_entity_names(r))
         except Exception as exc:
             logger.warning(f"[agent] suggested tool error {name}: {exc}")
     # Deduplicate touched
@@ -691,24 +895,14 @@ def _extract_entities_from_calls(calls: List[Dict[str, Any]]) -> List[str]:
                         names.append(en)
             elif name == "create_entities":
                 ents = params.get("entities") or []
-                for e in ents:
-                    en = e.get("name") if isinstance(e, dict) else None
+                for entity in ents:
+                    en = entity.get("name") if isinstance(entity, dict) else None
                     if isinstance(en, str):
                         names.append(en)
             elif name == "create_relations":
                 rels = params.get("relations") or []
                 for r in rels:
-                    if isinstance(r, dict):
-                        s = r.get("source")
-                        t = r.get("target")
-                        if isinstance(s, dict):
-                            s = s.get("name")
-                        if isinstance(t, dict):
-                            t = t.get("name")
-                        if isinstance(s, str):
-                            names.append(s)
-                        if isinstance(t, str):
-                            names.append(t)
+                    names.extend(_extract_relation_entity_names(r))
         except Exception:
             continue
     # Deduplicate while preserving order
@@ -935,7 +1129,7 @@ def run_for_chunk(source_id: str, chunk_id: str, source_url: str, text: str):
                 s = r.get("source")
                 t = r.get("target")
                 rt = r.get("relationType") or r.get("predicate")
-                # Handle dict endpoints with name field
+                # Handle dict endpoints with the name field
                 if isinstance(s, dict):
                     s = s.get("name")
                 if isinstance(t, dict):
