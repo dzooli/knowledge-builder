@@ -234,8 +234,7 @@ class JSONParser:
 
         while i < n:
             if text[i] == '{':
-                json_obj = cls.extract_json_object_at_position(text, i)
-                if json_obj:
+                if json_obj := cls.extract_json_object_at_position(text, i):
                     yield json_obj[0]
                     i = json_obj[1] + 1
                 else:
@@ -248,8 +247,7 @@ class JSONParser:
         """Find and extract the first top-level JSON array in the string."""
         for i in range(len(text)):
             if text[i] == '[':
-                array_content = cls.extract_json_array_at_position(text, i)
-                if array_content:
+                if array_content := cls.extract_json_array_at_position(text, i):
                     return array_content
         return None
 
@@ -306,8 +304,7 @@ class ToolCallExtractor:
     def try_array_extraction(cls, text: str) -> List[Dict[str, Any]]:
         """Try to find and parse a top-level JSON array."""
         with contextlib.suppress(Exception):
-            arr_str = JSONParser.find_top_level_array(text)
-            if arr_str:
+            if arr_str := JSONParser.find_top_level_array(text):
                 parsed_arr = json.loads(arr_str)
                 if isinstance(parsed_arr, list):
                     valid_calls = [obj for obj in parsed_arr if JSONParser.is_valid_tool_call(obj)]
@@ -317,7 +314,7 @@ class ToolCallExtractor:
 
     @classmethod
     def extract_tool_calls(cls, text: str) -> List[Dict[str, Any]]:
-        """Extract tool calls from text using multiple parsing strategies."""
+        """Extract tool calls from the text using multiple parsing strategies."""
         if not text:
             return []
 
@@ -332,8 +329,7 @@ class ToolCallExtractor:
         ]
 
         for strategy in strategies:
-            calls = strategy(cleaned)
-            if calls:
+            if calls := strategy(cleaned):
                 return calls[:10]
 
         return []
@@ -431,7 +427,7 @@ class ToolCallNormalizer:
 
     @classmethod
     def extract_observations_list(cls, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Extract observations list from parameters."""
+        """Extract the observations list from parameters."""
         if observations := params.get("observations"):
             return observations
 
@@ -446,7 +442,7 @@ class ToolCallNormalizer:
 
     @classmethod
     def build_observations_list(cls, params: Dict[str, Any]) -> List[str]:
-        """Build observations list from parameters."""
+        """Build the observation list from parameters."""
         if isinstance(params.get("observations"), list):
             return [str(x) for x in params["observations"]]
         elif "text" in params and params["text"]:
@@ -455,7 +451,7 @@ class ToolCallNormalizer:
 
     @classmethod
     def normalize_observations_params(cls, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize parameters for add_observations tool."""
+        """Normalize parameters for the add_observations tool."""
         observations = cls.extract_observations_list(params)
         normalized_observations = [cls.normalize_observation(o) for o in observations or [] if isinstance(o, dict)]
 
@@ -609,7 +605,7 @@ class Neo4jMemoryConnector:
         return self._tools_cache
 
     def get_tools_by_name_sync(self) -> Dict[str, BaseTool]:
-        """Get tools dictionary by name (synchronous)."""
+        """Get the tool dictionary by name (synchronous)."""
         try:
             tools = asyncio.run(self.ensure_mcp_tools())
         except RuntimeError:
@@ -642,7 +638,7 @@ class Neo4jMemoryConnector:
 
     @staticmethod
     def try_legacy_run(tool: BaseTool, params: Dict[str, Any]) -> Any:
-        """Try to invoke the tool using legacy run method."""
+        """Try to invoke the tool using the legacy run method."""
         if not hasattr(tool, 'run'):
             return None
 
@@ -692,7 +688,7 @@ class PaperlessProcessor:
 
     @staticmethod
     def wait_for_token(timeout_seconds: int = 0) -> str:
-        """Wait for Paperless authentication token."""
+        """Wait for a Paperless authentication token."""
         global PAPERLESS_TOKEN
         if PAPERLESS_TOKEN:
             return PAPERLESS_TOKEN
@@ -783,10 +779,8 @@ class StateManager:
     def _load_state(self):
         """Load state from file if it exists."""
         if self.state_path.exists():
-            try:
+            with contextlib.suppress(Exception):
                 self.state = json.loads(self.state_path.read_text(encoding="utf-8"))
-            except Exception:
-                pass
 
     def save_state(self):
         """Save current state to file."""
@@ -795,15 +789,11 @@ class StateManager:
 
     def should_process_document(self, doc_id: int) -> bool:
         """Check if document should be processed based on state."""
-        if FORCE_REPROCESS:
-            return True
-        return doc_id > self.state.get("last_id", 0)
+        return True if FORCE_REPROCESS else doc_id > self.state.get("last_id", 0)
 
     def is_document_changed(self, doc_id: int, text_hash: str) -> bool:
         """Check if document content has changed."""
-        if FORCE_REPROCESS:
-            return True
-        return self.state["hashes"].get(str(doc_id)) != text_hash
+        return True if FORCE_REPROCESS else text_hash != self.state.get("hashes", {}).get(str(doc_id), "")
 
     def update_document_state(self, doc_id: int, text_hash: str):
         """Update state for processed document."""
@@ -859,8 +849,9 @@ class ServiceBootstrapper:
     def resolve_neo4j_host_port(cls) -> tuple[str, int]:
         """Resolve Neo4j host and port from configuration."""
         if NEO4J_URL:
-            host_port = Neo4jMemoryConnector.neo4j_host_port_from_url(NEO4J_URL)
-            if host_port:
+            if host_port := Neo4jMemoryConnector.neo4j_host_port_from_url(
+                NEO4J_URL
+            ):
                 return host_port
         return NEO4J_HOST, NEO4J_PORT
 
@@ -1019,9 +1010,10 @@ class AgentOrchestrator:
 
         # Create evidence relations from all entities to the evidence
         sources = [name for name in entity_names if isinstance(name, str) and name and name != evidence_name]
-        relations = [{"source": name, "relationType": "evidence", "target": evidence_name} for name in sources]
-
-        if relations:
+        if relations := [
+            {"source": name, "relationType": "evidence", "target": evidence_name}
+            for name in sources
+        ]:
             try:
                 self.neo4j_connector.invoke_tool_by_name("create_relations", {"relations": relations})
                 logger.info(f"[agent] linked {len(relations)} entities to evidence {evidence_name}")
@@ -1090,19 +1082,20 @@ class AgentOrchestrator:
                                 touched += [d.get("name") for d in data if isinstance(d, dict) and isinstance(d.get("name"), str)]
 
                             if message.name == "create_relations" and isinstance(data, list):
-                                for relation in data:
-                                    if isinstance(relation, dict):
-                                        relations_to_retry.append(relation)
-
+                                relations_to_retry.extend(
+                                    relation
+                                    for relation in data
+                                    if isinstance(relation, dict)
+                                )
                 except Exception:
                     logger.info(f"[agent] msg#{i} (unparsable)")
 
             # If no writes detected, try to extract and execute suggested tool calls
             if not wrote and messages and isinstance(messages[-1], AIMessage):
                 last_ai = cast(AIMessage, messages[-1])
-                suggested_calls = ToolCallExtractor.extract_tool_calls(getattr(last_ai, "content", ""))
-
-                if suggested_calls:
+                if suggested_calls := ToolCallExtractor.extract_tool_calls(
+                    getattr(last_ai, "content", "")
+                ):
                     exec_wrote, exec_touched = self.execute_tool_calls(suggested_calls)
                     wrote = exec_wrote or wrote
                     touched += exec_touched
@@ -1167,8 +1160,9 @@ class AgentOrchestrator:
 
                 # Try suggested calls from fallback
                 if not wrote and messages2 and isinstance(messages2[-1], AIMessage):
-                    suggested_calls2 = ToolCallExtractor.extract_tool_calls(getattr(messages2[-1], "content", ""))
-                    if suggested_calls2:
+                    if suggested_calls2 := ToolCallExtractor.extract_tool_calls(
+                        getattr(messages2[-1], "content", "")
+                    ):
                         exec_wrote2, exec_touched2 = self.execute_tool_calls(suggested_calls2)
                         wrote = exec_wrote2 or wrote
                         touched += exec_touched2
@@ -1272,7 +1266,7 @@ class DocumentProcessor:
         self.bootstrapper = ServiceBootstrapper()
 
     def prepare_document_work(self, document: dict) -> Optional[DocumentWork]:
-        """Prepare document work unit with validation and chunking."""
+        """Prepare a document work unit with validation and chunking."""
         try:
             doc_id = int(document.get("id", 0))
         except Exception:
@@ -1408,8 +1402,7 @@ class SchedulerCoordinator:
             logger.info("Shutdown requested before run; skipping main().")
             return
 
-        acquired = self.run_lock.acquire(blocking=False)
-        if acquired:
+        if self.run_lock.acquire(blocking=False):
             try:
                 self.document_processor.run_main_process()
             finally:
@@ -1427,7 +1420,7 @@ class SchedulerCoordinator:
             time.sleep(1)
 
     def request_stop(self):
-        """Request graceful shutdown."""
+        """Request a graceful shutdown."""
         self.stop_event.set()
 
 
@@ -1448,10 +1441,8 @@ def main():
 
 if __name__ == "__main__":
     LOG_FILE = os.getenv("LOG_FILE", "/data/importer.log")
-    try:
+    with contextlib.suppress(Exception):
         Path(LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
 
     logger.add(
         LOG_FILE,
