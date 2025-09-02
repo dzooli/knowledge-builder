@@ -315,16 +315,6 @@ The importer has been refactored from a monolithic script into a well-structured
 docker compose logs -f importer
 ```
 
-- Run lightweight parser tests locally (no external services needed):
-
-```bash
-# from project root
-python scripts/test_tool_parsing.py
-python scripts/test_extract_entities.py
-```
-
-These scripts mock external deps and validate JSON/tool‑call parsing and entity extraction.
-
 ## 🧯 Troubleshooting
 
 - `paperless_token.txt` shows PENDING
