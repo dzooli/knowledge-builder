@@ -11,7 +11,7 @@ services:
     volumes:
       - ./paperless/data:/usr/src/paperless/data
       - ./paperless/media:/usr/src/paperless/media
-      - ${PAPERLESS_INBOX}:/usr/src/paperless/consume
+      - ${PAPERLESS_INBOX}:/usr/src/paperless/consume:z
       - ./bootstrap:/bootstrap
     ports:
       - "8900:8000"

@@ -17,8 +17,11 @@ RUN pip install uv && \
 # Ensure venv binaries (e.g., mcp-neo4j-memory) are on PATH for subprocess calls
 ENV PATH="/app/.venv/bin:${PATH}"
 
-# Copy importer sources
-COPY importer/src/importer.py /app/importer.py
+# Copy entire importer source directory structure
+COPY importer/src/ /app/src/
+
+# Add src directory to Python path for proper imports
+ENV PYTHONPATH="/app/src:${PYTHONPATH}"
 
 ENTRYPOINT ["/usr/bin/tini","--"]
-CMD ["/app/.venv/bin/python","/app/importer.py"]
+CMD ["/app/.venv/bin/python","/app/src/main.py"]
