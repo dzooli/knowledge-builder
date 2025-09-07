@@ -13,7 +13,7 @@ and verbose logging using loguru.
 - Paperless‑ngx – OCR and storage for screenshots/documents
 - paperless‑token (automated) – builds a tiny image from Paperless and automatically creates/gets the DRF API token,
   saving it to a shared file
-- Ollama – local LLM (model: `llama31-kb`, temperature=0) built from a custom Dockerfile; the model is baked at image
+- Ollama – local LLM (model: `gpt-oss:20b`, temperature=0) built from a custom Dockerfile; the model is baked at image
   build time
 - **Importer (Modular Architecture)** – A refactored, maintainable Python application with clean separation of concerns:
     - **Configuration Layer** – Centralized environment variable management
@@ -61,8 +61,8 @@ importer/
       scheduler.py        # Scheduled execution coordination
   Dockerfile
 ollama/
-  Dockerfile              # builds Ollama image and pre-creates `llama31-kb`
-  Modelfile               # FROM llama3.1:8b; PARAMETER temperature 0
+  Dockerfile              # builds Ollama image and pre-creates `gpt-oss:20b`
+  Modelfile               # FROM gpt-oss:20b; PARAMETER temperature 0.1
 paperless-token/
   Dockerfile              # minimal image derived from Paperless to create/get token
   entrypoint.sh           # waits for DB; runs manage.py drf_create_token; fallback script
@@ -164,7 +164,7 @@ NEO4J_URL=bolt://host.docker.internal:7687
 
 ```
 # Model name created during the Ollama image build
-OLLAMA_MODEL=llama31-kb
+OLLAMA_MODEL=gpt-oss:20b
 # Host access: http://127.0.0.1:11435 (container listens on http://ollama:11434)
 ```
 
