@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import json
+import re
 from typing import Any, Dict, List, cast, Optional
 
 from langchain_ollama import ChatOllama
@@ -14,8 +15,9 @@ from connectors import Neo4jMemoryConnector
 
 
 # Prompts
-PROMPT_TMPL = """You are a knowledge graph builder. Extract entities, relationships, and facts from the text to build a comprehensive knowledge graph.
+PROMPT_TMPL = """You are a professional linguist and a professional journalist in one person. Below the >>TEXTSTART a text will be embedded and I need to extract key information to build a knowledge base based on widely spreaded information. 
 
+You should understand the text, extract entities like:
 EXAMPLE ENTITY TYPES TO LOOK FOR (there could be more...):
 - Person: individuals, names, roles, titles
 - Organization: companies, institutions, agencies, groups
@@ -28,74 +30,69 @@ EXAMPLE ENTITY TYPES TO LOOK FOR (there could be more...):
 - Date: specific dates, time periods, deadlines
 - Amount: money, quantities, percentages, metrics
 
-WORKFLOW:
-1. SEARCH FIRST: Use search_memories or find_memories_by_name to check if entities already exist
-2. EXTRACT ENTITIES: Identify all entities from the text (aim for 5-15 entities per chunk)
-3. CREATE NEW ENTITIES: Only create entities that don't already exist
-4. ADD OBSERVATIONS: Add detailed facts, attributes, and context to entities
-5. FIND RELATIONSHIPS: Identify how entities relate to each other
-6. CREATE RELATIONS: Connect entities with meaningful relationship types
-7. CREATE EVIDENCE: Create "Evidence {SOURCE_ID}-{CHUNK_ID}" and link all newly created entities to it
-8. FINISH: Write "DONE" when all knowledge is extracted and stored
+Into each entity some key observations  (like use cases, facts, numbers, prices, owners, web pages, email addresses, addresses, etc.) and the entity type and category needs to be also extracted.
 
-RELATIONSHIP TYPES (examples):
+You also need to determine the relations between the existing or newly extracted entities.
+MORE RELATIONSHIP TYPES (examples):
 - works_for, employed_by, ceo_of, founded_by, owns
 - located_in, headquartered_in, based_in, operates_in
 - announced, acquired, merged_with, partnered_with
 - developed, created, released, launched, offers
 - attended, spoke_at, organized, participated_in
 - related_to, part_of, depends_on, uses, implements
+- provides, needs, costs, contains, requires
+Good relation example: entity1 -> efficiently handles -> entity2
+Bad relation example: entity1 -> handles -> entity2 efficiently; do not mix the entities with the relation types.
+Relation type should be lowercase in the final output.
 
 EXTRACTION STRATEGY:
+- Start by searching for key entities, then extract systematically
 - Look for proper nouns (capitalized words/phrases)
 - Identify relationships indicated by verbs and prepositions
 - Extract specific dates, amounts, and measurements
 - Note roles, titles, and positions mentioned
 - Capture business relationships and hierarchies
 - Record events, announcements, technologies, products and activities
+- Deletion of existing entity is not allowed
+- Since you are a knowledge builder, try to connect the new information to the existing
+- START ANSWER: Write "JSONSTART" before each JSON object (or object list) output
 
-IMPORTANT:
-- Search for existing entities before creating new ones
-- Create meaningful relationships between entities
-- Add rich observations with context and details
-- Use canonical names (e.g., "John Smith" not "Mr. Smith")
-- Be thorough - extract as much structured knowledge as possible
+The required output: 
 
-TEXT:
+  You should follow these rules:
+  - You just have the following (and ONLY THE FOLLOWING) external tools with the required parameters to manipulate a knowledge graph database:
+    - read_graph: query: str ; for searching memories based on a query containing search terms
+    - find_memories_by_name: names[string]
+    - create_entities: entities[{ name, type, observations }] where observations is a list of strings (can be empty)
+    - create_relations: relations[{ source, relationType, target }]
+    - add_observations: observations[{ entityName, observations:str[] }] where observations is a list of strings
+  - Evidence entity is a normal entity with the following properties and observations: name="Evidence {SOURCE_ID}-{CHUNK_ID}", type="Evidence", observations=["srcId={SOURCE_ID}", "chunk={CHUNK_ID}", "url={SOURCE_URL}"]
+  - Create Evidence entity: "Evidence {SOURCE_ID}-{CHUNK_ID}" based on the provided document-id and chunk-id on the first lines of the text
+  - Link all newly observed entities to Evidence with "evidence" relations (use create_relations tool)
+  - Search for existing entities using the relevant tools (find_memories_by_name, read_graph, search_memories) before creating new ones and update the observations only when found.
+  - Create meaningful relationships between entities
+  - Add rich observations with context and details
+  - Use canonical names (e.g., "John Smith" not "Mr. Smith")
+  - Be thorough - extract as much structured knowledge as possible
+  - If the new relations contains entities as targets which are not created by you, you must create them with a proper Category and with Type=Placeholder.
+  - The required output should be ONLY a json formatted, machine-readable JSON object with an array (without any unformatted or irrelevant repetition in other format) of tool calls in a proper order (I mean: create the evidence entity, add_observations first, then create_entites including the observations, then create_relations) using this schema below (method is always "tools/call", you should fill the THE_TOOL_NAME and THE_REQUIRED_TOOL_PARAMETERS_AS_DEFINED_ABOVE):
+    {[{"method": "tools/call", "params": {"tool_name": "<THE_TOOL_NAME>", "arguments": {REQUIRED_TOOL_PARAMETERS_AS_DEFINED_ABOVE}}},...]}
+
+VERY IMPORTANT WORKFLOW RULES, MUST BE ALWAYS FOLLOWED:
+  - CREATE THE EVIDENCE ENTITY FIRST
+  - CALL add_observations before any create_entities to ensure the UPSERT workflow
+  - CALL create_entities FOR THE EXTRACTED ENTITIES ONLY AFTER THE add_observations calls
+  - create the relations between the new entitles if any, every new entity MUST have at least 2 relations including the Evidence.
+  - when creating a relation ensure both end is created by you or was existing before. You might repeat creation of an entity if needed, this could be handled by the graph database engine but when you define a relation without existing both of source and target entities is not allowed.
+  - Duplicated entity is not a problem but missing relation is a serious problem.
+  - link new entities to the created evidence entity using relation type 'evidence' and tool: create_relations
+  - DO NOT OUTPUT ANYTHING ELSE EXCLUDING THE JSON OUTPUT AND USE ONLY THE PROVIDED TOOLS, THERE IS NO 'link_to_evidence' or 'create_link_to_evidence' or 'link_entity_to_evidence' tools, only 'create_relations' as I mentioned above.
+  - ENSURE EVERY NEW ENTITY HAVE AT LEAST TWO RELATIONS INCLUDING THE EVIDENCE
+  - ALL NEW ENTITY MUST BE LINKED TO ITS EVIDENCE
+
+>>TEXTSTART
 {TEXT}
-
-Begin by searching for any key entities that might already exist, then systematically extract all entities and relationships from the text."""
-
-# PROMPT_TMPL_FALLBACK = """Extract structured knowledge from this text for a knowledge graph. From TEXT below, you MUST persist knowledge into the Neo4j memory using the tools.
-#
-# IMPORTANT: You are BUILDING knowledge, not cleaning up. DO NOT delete anything you create.
-#
-# WHAT TO EXTRACT:
-# - People, organizations, locations, dates, amounts
-# - Events, products, concepts, technologies
-# - Relationships between entities
-# - Facts and attributes about entities
-#
-# PROCESS:
-# 1. Search for existing entities using search_memories
-# 2. Create entities for people, companies, places, etc.
-# 3. Add observations with facts about each entity
-# 4. Create relationships showing how entities connect
-# 5. Create Evidence entity: "Evidence {SOURCE_ID}-{CHUNK_ID}"
-# 6. Link all entities to Evidence with "evidence" relations
-#
-# Tool schemas:
-# - create_entities: entities[{ name, type, observations }] where observations is a list of strings (can be empty)
-# - create_relations: relations[{ source, relationType, target }]
-# - add_observations: observations[{ entityName, observations }] where observations is a list of strings
-# - Evidence entity: name="Evidence {SOURCE_ID}-{CHUNK_ID}", type="Evidence", observations=["srcId={SOURCE_ID}", "chunk={CHUNK_ID}", "url={SOURCE_URL}"]
-#
-# AIM FOR DEPTH: Extract 5+ entities and their relationships, not just one generic document node.
-#
-# TEXT:
-# {TEXT}
-#
-# Start by searching for key entities, then extract systematically."""
+"""
 
 
 class AgentOrchestrator:
@@ -118,9 +115,8 @@ class AgentOrchestrator:
 
         # Configure the agent with recursion limits and timeout
         graph = create_react_agent(
-            model, 
-            tools,
-            state_modifier="You are a knowledge extraction agent. Use tools to extract information and store it in Neo4j. When you've completed the task, stop immediately."
+            model,
+            tools
         )
 
         # Set recursion and step limits
@@ -149,6 +145,8 @@ class AgentOrchestrator:
                 content_preview = str(getattr(msg, 'content', ''))[:200]
                 tool_calls = getattr(msg, 'tool_calls', None)
                 logger.info(f"[agent] message {i}: {msg_type} - {content_preview} - tool_calls: {len(tool_calls) if tool_calls else 0}")
+        else:
+            logger.error("[agent] received no messages from agent")
 
         return result
 
@@ -235,7 +233,8 @@ class AgentOrchestrator:
         add_observations = [c for c in calls if c.get("name") == "add_observations"]
         create_relations = [c for c in calls if c.get("name") == "create_relations"]
         other = [c for c in calls if c.get("name") not in {"create_entities", "add_observations", "create_relations"}]
-        return create_entities + add_observations + other + create_relations
+        # Ensure add_observations precedes create_entities per UPSERT workflow
+        return add_observations + create_entities + other + create_relations
 
     @staticmethod
     def _is_valid_call(name: Any, params: Any) -> bool:
@@ -342,7 +341,7 @@ class AgentOrchestrator:
     def _run_agent_sync(self, prompt: str) -> List[Any]:
         try:
             # Set a timeout for the entire agent run
-            result = asyncio.wait_for(self.run_agent(prompt), timeout=300.0)  # 2 minute timeout
+            result = asyncio.wait_for(self.run_agent(prompt), timeout=300.0)  # 5 minute timeout
             result = asyncio.run(result)
             return result.get("messages") if isinstance(result, dict) else []
         except asyncio.TimeoutError:
@@ -356,7 +355,14 @@ class AgentOrchestrator:
     def _log_last_message_output(messages: List[Any], source_id: str, chunk_id: str, prefix: str = ""):
         if messages:
             last_message = messages[-1]
-            logger.info(f"[agent] {prefix}output doc={source_id} {chunk_id}:\n{TextUtils.truncate_text(getattr(last_message, 'content', ''), Config.LOG_LLM_OUTPUT_MAX)}")
+            content = getattr(last_message, 'content', '')
+            try:
+                content_text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, indent=2)
+            except Exception:
+                content_text = str(content)
+            logger.info(f"[agent] {prefix}output doc={source_id} {chunk_id} (full LLM response):\n{content_text}")
+        else:
+            logger.warning(f"[agent] {prefix}no output doc={source_id} {chunk_id}")
 
     @staticmethod
     def _log_ai_tool_calls(message: Any, index: int, prefix: str = ""):
@@ -426,7 +432,11 @@ class AgentOrchestrator:
                 last_msg = messages[-1]
                 if isinstance(last_msg, AIMessage):
                     content = getattr(last_msg, 'content', '')
-                    logger.info(f"[agent] {prefix}last AI message content: {TextUtils.truncate_text(content, 500)}")
+                    try:
+                        content_text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, indent=2)
+                    except Exception:
+                        content_text = str(content)
+                    logger.info(f"[agent] {prefix}last AI message content (full): {content_text}")
 
         return wrote, touched, relations_to_retry
 
@@ -434,9 +444,103 @@ class AgentOrchestrator:
         if not messages or not isinstance(messages[-1], AIMessage):
             return False, [], []
         last_ai = cast(AIMessage, messages[-1])
-        calls = ToolCallExtractor.extract_tool_calls(getattr(last_ai, "content", ""))
+        raw_content = str(getattr(last_ai, "content", "") or "")
+
+        def _normalize_quotes(s: str) -> str:
+            # Replace common smart quotes with ASCII equivalents to improve JSON parsing robustness
+            return s.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
+
+        def _strip_code_fences(s: str) -> str:
+            if "```" in s:
+                parts = s.split("```")
+                # Try to return a plausible JSON block inside fences
+                for i in range(0, len(parts) - 1, 2):
+                    block = parts[i + 1]
+                    if block.lstrip().startswith("[") or block.lstrip().startswith("{"):
+                        return block
+                # Fallback: remove the backticks and join inner content
+                return "".join(parts[i] for i in range(1, len(parts), 2))
+            return s
+
+        def _extract_json_text(s: str) -> Optional[str]:
+            s = _normalize_quotes(s)
+            # If the model outputs "JSONSTART" markers, prefer the last block following it
+            marker = "JSONSTART"
+            if marker in s:
+                s = s.split(marker)[-1]
+            s = _strip_code_fences(s).strip()
+            # Quick path
+            if s.startswith("[") or s.startswith("{"):
+                return s
+            # Heuristic scan for a JSON array/object substring
+            for open_ch, close_ch in (("[", "]"), ("{", "}")):
+                start = s.find(open_ch)
+                if start != -1:
+                    depth = 0
+                    in_str = False
+                    esc = False
+                    for idx in range(start, len(s)):
+                        ch = s[idx]
+                        if in_str:
+                            if esc:
+                                esc = False
+                            elif ch == "\\":
+                                esc = True
+                            elif ch == '"':
+                                in_str = False
+                        else:
+                            if ch == '"':
+                                in_str = True
+                            elif ch == open_ch:
+                                depth += 1
+                            elif ch == close_ch:
+                                depth -= 1
+                                if depth == 0:
+                                    return s[start:idx + 1]
+            return None
+
+        def _parse_calls_from_content(s: str) -> List[Dict[str, Any]]:
+            text = _extract_json_text(s)
+            if not text:
+                return []
+            try:
+                obj = json.loads(text)
+            except Exception:
+                return []
+            items = obj if isinstance(obj, list) else [obj]
+            normalized: List[Dict[str, Any]] = []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                # Schema with method/params
+                method = item.get("method")
+                params = item.get("params") if isinstance(item.get("params"), dict) else {}
+                tool_name = None
+                arguments: Any = {}
+                if method == "tools/call":
+                    tool_name = params.get("tool_name") or item.get("tool_name")
+                    arguments = params.get("arguments") or item.get("arguments") or {}
+                # Already-normalized schema (legacy)
+                if not tool_name and isinstance(item.get("name"), str):
+                    tool_name = item.get("name")
+                    arguments = item.get("parameters") if isinstance(item.get("parameters"), dict) else {}
+                if isinstance(tool_name, str) and isinstance(arguments, dict):
+                    normalized.append({"name": tool_name, "parameters": arguments})
+            return normalized
+
+        # First, parse tool calls using the new "tools/call" schema
+        calls = _parse_calls_from_content(raw_content)
+
+        # Fallback to legacy extractor
+        if not calls:
+            try:
+                calls = ToolCallExtractor.extract_tool_calls(raw_content)
+            except Exception:
+                calls = []
+
         if not calls:
             return False, [], []
+
         exec_wrote, exec_touched = self.execute_tool_calls(calls)
         return exec_wrote, exec_touched, self.extract_relations_from_calls(calls)
 
@@ -715,27 +819,6 @@ class AgentOrchestrator:
                     wrote = wrote or generated_wrote
                     touched += generated_touched
                     logger.info(f"[agent] generated calls result doc={source_id} {chunk_id}: wrote={generated_wrote}, additional_touched={len(generated_touched)}")
-
-            # 3) Fallback prompt if still no writes
-            # if not wrote and text and text.strip():
-            #     logger.warning(f"[agent] no writes detected for doc={source_id} {chunk_id}; retrying with fallback prompt")
-            #     fb_prompt = self._build_prompt(PROMPT_TMPL_FALLBACK, source_id, chunk_id, source_url, text)
-            #     fb_messages = self._run_agent_sync(fb_prompt)
-            #     self._log_last_message_output(fb_messages, source_id, chunk_id, prefix="fallback ")
-            #
-            #     fb_wrote, fb_touched, fb_rel = self._process_messages(fb_messages, prefix="fb-")
-            #     wrote = wrote or fb_wrote
-            #     touched += fb_touched
-            #     relations_to_retry += fb_rel
-            #     logger.info(f"[agent] fallback prompt result doc={source_id} {chunk_id}: wrote={fb_wrote}, additional_touched={len(fb_touched)}")
-            #
-            #     if not fb_wrote:
-            #         logger.info(f"[agent] fallback prompt had no writes, trying suggested calls for doc={source_id} {chunk_id}")
-            #         exec_wrote2, exec_touched2, exec_rel2 = self._execute_suggested_calls_from_last_ai(fb_messages)
-            #         wrote = wrote or exec_wrote2
-            #         touched += exec_touched2
-            #         relations_to_retry += exec_rel2
-            #         logger.info(f"[agent] fallback suggested calls result doc={source_id} {chunk_id}: wrote={exec_wrote2}, additional_touched={len(exec_touched2)}")
 
             # 4) Final programmatic fallback: ensure at least one write
             if not wrote and text and text.strip():

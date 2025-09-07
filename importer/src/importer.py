@@ -427,7 +427,7 @@ class ToolCallNormalizer:
 
     @classmethod
     def extract_observations_list(cls, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Extract the observations list from parameters."""
+        """Extract the observation list from parameters."""
         if observations := params.get("observations"):
             return observations
 
@@ -497,7 +497,7 @@ class ToolCallNormalizer:
 
     @classmethod
     def has_valid_observations(cls, params: Dict[str, Any]) -> bool:
-        """Check if parameters contain valid observations with entity name."""
+        """Check if parameters contain valid observations with an entity name."""
         observations = params.get("observations")
         if not isinstance(observations, list) or not observations:
             return False
@@ -614,7 +614,7 @@ class Neo4jMemoryConnector:
 
     @staticmethod
     def try_async_invoke(tool: BaseTool, params: Dict[str, Any]) -> Any:
-        """Try to invoke the tool using async ainvoke method."""
+        """Try to invoke the tool using the async ainvoke method."""
         if not hasattr(tool, 'ainvoke'):
             return None
 
@@ -625,7 +625,7 @@ class Neo4jMemoryConnector:
 
     @staticmethod
     def try_sync_invoke(tool: BaseTool, params: Dict[str, Any]) -> Any:
-        """Try to invoke the tool using sync invoke method."""
+        """Try to invoke the tool using the sync invoke method."""
         if not hasattr(tool, 'invoke'):
             return None
 
@@ -769,7 +769,7 @@ class PaperlessProcessor:
 
 
 class StateManager:
-    """Manages processing state and idempotency checks."""
+    """Manages to process state and idempotency checks."""
 
     def __init__(self, state_path: Path = STATE_PATH):
         self.state_path = state_path
@@ -777,18 +777,18 @@ class StateManager:
         self._load_state()
 
     def _load_state(self):
-        """Load state from file if it exists."""
+        """Load state from a file if it exists."""
         if self.state_path.exists():
             with contextlib.suppress(Exception):
                 self.state = json.loads(self.state_path.read_text(encoding="utf-8"))
 
     def save_state(self):
-        """Save current state to file."""
+        """Save the current state to file."""
         with contextlib.suppress(Exception):
             self.state_path.write_text(json.dumps(self.state), encoding="utf-8")
 
     def should_process_document(self, doc_id: int) -> bool:
-        """Check if document should be processed based on state."""
+        """Check if a document should be processed based on state."""
         return True if FORCE_REPROCESS else doc_id > self.state.get("last_id", 0)
 
     def is_document_changed(self, doc_id: int, text_hash: str) -> bool:
@@ -894,104 +894,135 @@ class AgentOrchestrator:
                 continue
         return relations
 
+    # --- Helpers to reduce complexity in entity extraction ---
+    @staticmethod
+    def _extract_names_from_add_observations(params: Dict[str, Any]) -> List[str]:
+        observations = params.get("observations") or []
+        names: List[str] = []
+        for observation in observations:
+            entity_name = observation.get("entityName") if isinstance(observation, dict) else None
+            if isinstance(entity_name, dict):
+                entity_name = entity_name.get("name")
+            if isinstance(entity_name, str):
+                names.append(entity_name)
+        return names
+
+    @staticmethod
+    def _extract_names_from_create_entities(params: Dict[str, Any]) -> List[str]:
+        entities = params.get("entities") or []
+        names: List[str] = []
+        for entity in entities:
+            entity_name = entity.get("name") if isinstance(entity, dict) else None
+            if isinstance(entity_name, str):
+                names.append(entity_name)
+        return names
+
+    @staticmethod
+    def _extract_names_from_create_relations(params: Dict[str, Any]) -> List[str]:
+        relations = params.get("relations") or []
+        names: List[str] = []
+        for relation in relations:
+            if not isinstance(relation, dict):
+                continue
+            source = relation.get("source")
+            target = relation.get("target")
+            if isinstance(source, dict):
+                source = source.get("name")
+            if isinstance(target, dict):
+                target = target.get("name")
+            if isinstance(source, str) and source and isinstance(target, str) and target:
+                names.extend([source, target])
+        return names
+
+    @staticmethod
+    def _dedupe_preserve_order(items: List[str]) -> List[str]:
+        seen: set[str] = set()
+        return [x for x in items if isinstance(x, str) and x and (x not in seen and not seen.add(x))]
+
     def extract_entities_from_calls(self, calls: List[Dict[str, Any]]) -> List[str]:
-        """Extract entity names from tool calls."""
-        names = []
+        """Extract entity names from tool calls with reduced complexity."""
+        names: List[str] = []
         for call in calls or []:
             try:
                 name = call.get("name")
                 params = call.get("parameters") or {}
-
                 if name == "add_observations":
-                    observations = params.get("observations") or []
-                    for observation in observations:
-                        entity_name = observation.get("entityName") if isinstance(observation, dict) else None
-                        if isinstance(entity_name, dict):
-                            entity_name = entity_name.get("name")
-                        if isinstance(entity_name, str):
-                            names.append(entity_name)
-
+                    names.extend(self._extract_names_from_add_observations(params))
                 elif name == "create_entities":
-                    entities = params.get("entities") or []
-                    for entity in entities:
-                        entity_name = entity.get("name") if isinstance(entity, dict) else None
-                        if isinstance(entity_name, str):
-                            names.append(entity_name)
-
+                    names.extend(self._extract_names_from_create_entities(params))
                 elif name == "create_relations":
-                    relations = params.get("relations") or []
-                    for relation in relations:
-                        names.extend(ToolCallNormalizer.extract_relation_entity_names(relation))
+                    names.extend(self._extract_names_from_create_relations(params))
             except Exception:
                 continue
+        return self._dedupe_preserve_order(names)
 
-        # Deduplicate while preserving order
-        seen = set()
-        return [name for name in names if name not in seen and not seen.add(name)]
+    # --- New helpers to lower execute_tool_calls cognitive complexity ---
+    @staticmethod
+    def _order_tool_calls(calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        create_entities = [c for c in calls if c.get("name") == "create_entities"]
+        add_observations = [c for c in calls if c.get("name") == "add_observations"]
+        create_relations = [c for c in calls if c.get("name") == "create_relations"]
+        other = [c for c in calls if c.get("name") not in {"create_entities", "add_observations", "create_relations"}]
+        return create_entities + add_observations + other + create_relations
+
+    @staticmethod
+    def _is_valid_call(name: Any, params: Any) -> bool:
+        return isinstance(name, str) and isinstance(params, dict)
+
+    @staticmethod
+    def _is_successful_write(tool_name: str, result: Any) -> bool:
+        if tool_name not in {"create_entities", "create_relations", "add_observations"}:
+            return False
+        return not (isinstance(result, str) and str(result).lower().startswith("error"))
+
+    def _collect_touched_names(self, tool_name: str, params: Dict[str, Any]) -> List[str]:
+        extractors = {
+            "create_entities": self._extract_names_from_create_entities,
+            "add_observations": self._extract_names_from_add_observations,
+            "create_relations": self._extract_names_from_create_relations,
+        }
+        extractor = extractors.get(tool_name)
+        return extractor(params) if extractor else []
+
+    def _iter_valid_calls(self, ordered_calls: List[Dict[str, Any]]):
+        for i, call in enumerate(ordered_calls, start=1):
+            name = call.get("name")
+            params = call.get("parameters")
+            if self._is_valid_call(name, params):
+                yield i, cast(str, name), cast(Dict[str, Any], params)
+
+    def _invoke_and_collect(self, index: int, name: str, params: Dict[str, Any]) -> tuple[bool, List[str]]:
+        try:
+            logger.info(f"[agent] executing suggested tool #{index}: {name} args={TextUtils.truncate_text(params, LOG_TOOL_PREVIEW_MAX)}")
+            result = self.neo4j_connector.invoke_tool_by_name(name, params)
+            # logger.info(f"[agent] suggested tool result #{index} {name}: {TextUtils.truncate_text(result, LOG_TOOL_PREVIEW_MAX)}")
+            logger.info(f"[agent] suggested tool result #{index} {name}: {result}")
+            wrote = self._is_successful_write(name, result)
+            touched = self._collect_touched_names(name, params)
+            return wrote, touched
+        except Exception as exc:
+            logger.warning(f"[agent] suggested tool error {name}: {exc}")
+            return False, []
 
     def execute_tool_calls(self, calls: List[Dict[str, Any]]) -> tuple[bool, List[str]]:
-        """Execute tool calls in proper order."""
+        """Execute tool calls in the proper order."""
         if not calls:
             return False, []
 
         wrote = False
-        touched = []
+        touched: List[str] = []
 
-        # Partition calls to ensure proper execution order
-        create_entities_calls = [c for c in calls if c.get("name") == "create_entities"]
-        add_observations_calls = [c for c in calls if c.get("name") == "add_observations"]
-        create_relations_calls = [c for c in calls if c.get("name") == "create_relations"]
-        other_calls = [c for c in calls if c.get("name") not in {"create_entities", "add_observations", "create_relations"}]
+        ordered_calls = self._order_tool_calls(calls)
 
-        ordered_calls = create_entities_calls + add_observations_calls + other_calls + create_relations_calls
+        for idx, name, params in self._iter_valid_calls(ordered_calls):
+            success, names = self._invoke_and_collect(idx, name, params)
+            wrote = wrote or success
+            touched.extend(names)
 
-        for i, call in enumerate(ordered_calls, start=1):
-            name = call.get("name")
-            params = call.get("parameters")
-
-            if not isinstance(name, str) or not isinstance(params, dict):
-                continue
-
-            try:
-                logger.info(f"[agent] executing suggested tool #{i}: {name} args={TextUtils.truncate_text(params, LOG_TOOL_PREVIEW_MAX)}")
-                result = self.neo4j_connector.invoke_tool_by_name(name, params)
-                logger.info(f"[agent] suggested tool result #{i} {name}: {TextUtils.truncate_text(result, LOG_TOOL_PREVIEW_MAX)}")
-
-                if name in {"create_entities", "create_relations", "add_observations"} and not (isinstance(result, str) and str(result).lower().startswith("error")):
-                    wrote = True
-
-                # Collect touched entities
-                if name == "create_entities":
-                    entities = (params or {}).get("entities") or []
-                    for entity in entities:
-                        entity_name = entity.get("name") if isinstance(entity, dict) else None
-                        if isinstance(entity_name, str):
-                            touched.append(entity_name)
-
-                elif name == "add_observations":
-                    observations = (params or {}).get("observations") or []
-                    for observation in observations:
-                        entity_name = observation.get("entityName") if isinstance(observation, dict) else None
-                        if isinstance(entity_name, dict):
-                            entity_name = entity_name.get("name")
-                        if isinstance(entity_name, str):
-                            touched.append(entity_name)
-
-                elif name == "create_relations":
-                    relations = (params or {}).get("relations") or []
-                    for relation in relations:
-                        touched.extend(ToolCallNormalizer.extract_relation_entity_names(relation))
-
-            except Exception as exc:
-                logger.warning(f"[agent] suggested tool error {name}: {exc}")
-
-        # Deduplicate touched entities
-        seen = set()
-        touched_unique = [name for name in touched if isinstance(name, str) and name and (name not in seen and not seen.add(name))]
-        return wrote, touched_unique
+        return wrote, self._dedupe_preserve_order(touched)
 
     def ensure_evidence_links(self, entity_names: List[str], source_id: str, chunk_id: str, source_url: str):
-        """Ensure evidence entity exists and is linked to all touched entities."""
+        """Ensure an evidence entity exists and is linked to all touched entities."""
         if not entity_names:
             return
 
@@ -1020,233 +1051,228 @@ class AgentOrchestrator:
             except Exception as exc:
                 logger.warning(f"[agent] evidence relation creation failed: {exc}")
 
-    def process_chunk(self, source_id: str, chunk_id: str, source_url: str, text: str):
-        """Process a single chunk of text."""
+    # --- Helpers extracted to reduce process_chunk complexity ---
+    @staticmethod
+    def _log_chunk_start_preview(source_id: str, chunk_id: str, text: str):
         logger.info(f"[chunk] start doc={source_id} {chunk_id} len={len(text)}")
-
         if LOG_CHUNK_FULL:
             logger.info(f"[chunk] text doc={source_id} {chunk_id}:\n{text}")
         else:
             logger.info(f"[chunk] preview doc={source_id} {chunk_id}:\n{TextUtils.truncate_text(text, LOG_CHUNK_PREVIEW_MAX)}")
 
+    @staticmethod
+    def _build_prompt(tmpl: str, source_id: str, chunk_id: str, source_url: str, text: str) -> str:
+        return (tmpl
+                .replace("{SOURCE_ID}", source_id)
+                .replace("{CHUNK_ID}", chunk_id)
+                .replace("{SOURCE_URL}", source_url or "")
+                .replace("{TEXT}", text))
+
+    def _run_agent_sync(self, prompt: str) -> List[Any]:
+        result = asyncio.run(self.run_agent(prompt))
+        return result.get("messages") if isinstance(result, dict) else []
+
+    @staticmethod
+    def _log_last_message_output(messages: List[Any], source_id: str, chunk_id: str, prefix: str = ""):
+        if messages:
+            last_message = messages[-1]
+            logger.info(f"[agent] {prefix}output doc={source_id} {chunk_id}:\n{TextUtils.truncate_text(getattr(last_message, 'content', ''), LOG_LLM_OUTPUT_MAX)}")
+
+    @staticmethod
+    def _log_ai_tool_calls(message: Any, index: int, prefix: str = ""):
+        if getattr(message, "tool_calls", None):
+            for tool_call in message.tool_calls:
+                logger.info(
+                    f"[agent] {prefix}ai#{index} tool_call name={tool_call.get('name')} "
+                    f"args={TextUtils.truncate_text(tool_call.get('args'), LOG_TOOL_PREVIEW_MAX)}"
+                )
+
+    @staticmethod
+    def _parse_message_data(raw: Any) -> Any:
+        if isinstance(raw, str):
+            with contextlib.suppress(Exception):
+                return json.loads(raw)
+            return None
+        return raw if isinstance(raw, (dict, list)) else None
+
+    def _handle_tool_message(self, message: Any, index: int, prefix: str = "") -> tuple[bool, List[str], List[Dict[str, Any]]]:
+        logger.info(f"[agent] {prefix}tool#{index} name={message.name} result={TextUtils.truncate_text(message.content, LOG_TOOL_PREVIEW_MAX)}")
+
+        wrote = False
+        if message.name in {"create_entities", "create_relations", "add_observations", "delete_entities", "delete_relations", "delete_observations"}:
+            content = (message.content or "") if isinstance(message.content, str) else json.dumps(message.content)
+            if not str(content).lower().startswith("error"):
+                wrote = True
+
+        touched: List[str] = []
+        relations_to_retry: List[Dict[str, Any]] = []
+        data = self._parse_message_data(message.content)
+
+        if message.name == "add_observations" and isinstance(data, list):
+            touched += [d.get("entityName") for d in data if isinstance(d, dict) and isinstance(d.get("entityName"), str)]
+        if message.name == "create_entities" and isinstance(data, list):
+            touched += [d.get("name") for d in data if isinstance(d, dict) and isinstance(d.get("name"), str)]
+        if message.name == "create_relations" and isinstance(data, list):
+            relations_to_retry.extend(relation for relation in data if isinstance(relation, dict))
+
+        return wrote, touched, relations_to_retry
+
+    def _process_messages(self, messages: List[Any], prefix: str = "") -> tuple[bool, List[str], List[Dict[str, Any]]]:
+        wrote = False
+        touched: List[str] = []
+        relations_to_retry: List[Dict[str, Any]] = []
+
+        for i, message in enumerate(messages or [], start=1):
+            try:
+                if isinstance(message, AIMessage):
+                    self._log_ai_tool_calls(message, i, prefix)
+                elif isinstance(message, ToolMessage):
+                    w, t, r = self._handle_tool_message(message, i, prefix)
+                    wrote = wrote or w
+                    touched.extend(t)
+                    relations_to_retry.extend(r)
+            except Exception:
+                logger.info(f"[agent] {prefix}msg#{i} (unparsable)")
+        return wrote, touched, relations_to_retry
+
+    def _execute_suggested_calls_from_last_ai(self, messages: List[Any]) -> tuple[bool, List[str], List[Dict[str, Any]]]:
+        if not messages or not isinstance(messages[-1], AIMessage):
+            return False, [], []
+        last_ai = cast(AIMessage, messages[-1])
+        calls = ToolCallExtractor.extract_tool_calls(getattr(last_ai, "content", ""))
+        if not calls:
+            return False, [], []
+        exec_wrote, exec_touched = self.execute_tool_calls(calls)
+        return exec_wrote, exec_touched, self.extract_relations_from_calls(calls)
+
+    def _force_minimal_write(self, source_id: str, chunk_id: str, source_url: str, text: str) -> tuple[bool, List[str]]:
         try:
-            # Build prompt
-            prompt = (PROMPT_TMPL
-                      .replace("{SOURCE_ID}", source_id)
-                      .replace("{CHUNK_ID}", chunk_id)
-                      .replace("{SOURCE_URL}", source_url or "")
-                      .replace("{TEXT}", text))
+            doc_entity = f"Document {source_id}"
+            logger.warning(f"[agent] forcing minimal write for doc={source_id} {chunk_id}")
 
-            # Run agent
-            result = asyncio.run(self.run_agent(prompt))
-            messages = result.get("messages") if isinstance(result, dict) else []
+            # Create Document and Evidence entities
+            with contextlib.suppress(Exception):
+                entities_payload = {"entities": [
+                    {"name": doc_entity, "type": "Document", "observations": []},
+                    {"name": f"Evidence {source_id}-{chunk_id}", "type": "Evidence",
+                     "observations": [f"srcId={source_id}", f"chunk={chunk_id}", f"url={source_url or ''}"]}
+                ]}
+                result_create = self.neo4j_connector.invoke_tool_by_name("create_entities", entities_payload)
+                logger.info(f"[agent] forced create_entities result: {TextUtils.truncate_text(result_create, LOG_TOOL_PREVIEW_MAX)}")
 
-            if messages:
-                last_message = messages[-1]
-                logger.info(f"[agent] output doc={source_id} {chunk_id}:\n{TextUtils.truncate_text(getattr(last_message, 'content', ''), LOG_LLM_OUTPUT_MAX)}")
+            # Add observations to Document
+            with contextlib.suppress(Exception):
+                obs_text = text if len(text) <= 1500 else text[:1500]
+                observations_payload = {"observations": [{"entityName": doc_entity, "observations": [obs_text]}]}
+                result_obs = self.neo4j_connector.invoke_tool_by_name("add_observations", observations_payload)
+                logger.info(f"[agent] forced add_observations result: {TextUtils.truncate_text(result_obs, LOG_TOOL_PREVIEW_MAX)}")
 
-            wrote = False
-            touched = []
-            relations_to_retry = []
+            # Create evidence relation
+            with contextlib.suppress(Exception):
+                self.neo4j_connector.invoke_tool_by_name("create_relations", {"relations": [{
+                    "source": doc_entity,
+                    "relationType": "evidence",
+                    "target": f"Evidence {source_id}-{chunk_id}"
+                }]})
 
-            # Process messages to detect writes and collect touched entities
-            for i, message in enumerate(messages or [], start=1):
-                try:
-                    if isinstance(message, AIMessage) and getattr(message, "tool_calls", None):
-                        for tool_call in message.tool_calls:
-                            logger.info(f"[agent] ai#{i} tool_call name={tool_call.get('name')} args={TextUtils.truncate_text(tool_call.get('args'), LOG_TOOL_PREVIEW_MAX)}")
+            return True, [doc_entity]
+        except Exception as exc:
+            logger.error(f"[agent] forced write failed doc={source_id} {chunk_id}: {exc}")
+            return False, []
 
-                    elif isinstance(message, ToolMessage):
-                        logger.info(f"[agent] tool#{i} name={message.name} result={TextUtils.truncate_text(message.content, LOG_TOOL_PREVIEW_MAX)}")
+    # New helpers for relation retry dedup/normalization
+    def _normalize_relation_for_retry(self, relation: Dict[str, Any]) -> Optional[Dict[str, str]]:
+        if not isinstance(relation, dict):
+            return None
+        source: Any = relation.get("source")
+        target: Any = relation.get("target")
+        relation_type: Any = relation.get("relationType") or relation.get("predicate")
+        if isinstance(source, dict):
+            source = source.get("name")
+        if isinstance(target, dict):
+            target = target.get("name")
+        if all(isinstance(x, str) and x for x in (source, relation_type, target)):
+            return {"source": cast(str, source), "relationType": cast(str, relation_type), "target": cast(str, target)}
+        return None
 
-                        if message.name in {"create_entities", "create_relations", "add_observations", "delete_entities", "delete_relations", "delete_observations"}:
-                            content = (message.content or "") if isinstance(message.content, str) else json.dumps(message.content)
-                            if not str(content).lower().startswith("error"):
-                                wrote = True
+    @staticmethod
+    def _relation_key(rel: Dict[str, str]) -> tuple[str, str, str]:
+        return rel.get("source", ""), rel.get("relationType", ""), rel.get("target", "")
 
-                        # Collect touched entities
-                        with contextlib.suppress(Exception):
-                            raw = message.content
-                            data = None
+    def _retry_relations(self, relations_to_retry: List[Dict[str, Any]]):
+        if not relations_to_retry:
+            return
+        final_relations: List[Dict[str, str]] = []
+        seen: set[tuple[str, str, str]] = set()
 
-                            if isinstance(raw, str):
-                                with contextlib.suppress(Exception):
-                                    data = json.loads(raw)
-                            elif isinstance(raw, (dict, list)):
-                                data = raw
+        for relation in relations_to_retry:
+            normalized = self._normalize_relation_for_retry(relation)
+            if not normalized:
+                continue
+            key = self._relation_key(normalized)
+            if key in seen:
+                continue
+            seen.add(key)
+            final_relations.append(normalized)
 
-                            if message.name == "add_observations" and isinstance(data, list):
-                                touched += [d.get("entityName") for d in data if isinstance(d, dict) and isinstance(d.get("entityName"), str)]
+        if final_relations:
+            try:
+                self.neo4j_connector.invoke_tool_by_name("create_relations", {"relations": final_relations})
+                logger.info(f"[agent] retried {len(final_relations)} domain relations at end of chunk")
+            except Exception as exc:
+                logger.warning(f"[agent] retrying relations failed: {exc}")
 
-                            if message.name == "create_entities" and isinstance(data, list):
-                                touched += [d.get("name") for d in data if isinstance(d, dict) and isinstance(d.get("name"), str)]
+    def process_chunk(self, source_id: str, chunk_id: str, source_url: str, text: str):
+        """Process a single chunk of text."""
+        logger.info(f"[chunk] start doc={source_id} {chunk_id} len={len(text)}")
 
-                            if message.name == "create_relations" and isinstance(data, list):
-                                relations_to_retry.extend(
-                                    relation
-                                    for relation in data
-                                    if isinstance(relation, dict)
-                                )
-                except Exception:
-                    logger.info(f"[agent] msg#{i} (unparsable)")
+        self._log_chunk_start_preview(source_id, chunk_id, text)
 
-            # If no writes detected, try to extract and execute suggested tool calls
-            if not wrote and messages and isinstance(messages[-1], AIMessage):
-                last_ai = cast(AIMessage, messages[-1])
-                if suggested_calls := ToolCallExtractor.extract_tool_calls(
-                    getattr(last_ai, "content", "")
-                ):
-                    exec_wrote, exec_touched = self.execute_tool_calls(suggested_calls)
-                    wrote = exec_wrote or wrote
-                    touched += exec_touched
-                    relations_to_retry += self.extract_relations_from_calls(suggested_calls)
+        try:
+            # 1) Primary prompt run
+            prompt = self._build_prompt(PROMPT_TMPL, source_id, chunk_id, source_url, text)
+            messages = self._run_agent_sync(prompt)
+            self._log_last_message_output(messages, source_id, chunk_id)
 
-            # Fallback prompt if still no writes
+            wrote, touched, relations_to_retry = self._process_messages(messages)
+
+            # 2) If no writes, try suggested calls from the last AI message
+            if not wrote:
+                exec_wrote, exec_touched, exec_rel = self._execute_suggested_calls_from_last_ai(messages)
+                wrote = wrote or exec_wrote
+                touched += exec_touched
+                relations_to_retry += exec_rel
+
+            # 3) Fallback prompt if still no writes
             if not wrote and text and text.strip():
                 logger.warning(f"[agent] no writes detected for doc={source_id} {chunk_id}; retrying with fallback prompt")
+                fb_prompt = self._build_prompt(PROMPT_TMPL_FALLBACK, source_id, chunk_id, source_url, text)
+                fb_messages = self._run_agent_sync(fb_prompt)
+                self._log_last_message_output(fb_messages, source_id, chunk_id, prefix="fallback ")
 
-                fallback_prompt = (PROMPT_TMPL_FALLBACK
-                                   .replace("{SOURCE_ID}", source_id)
-                                   .replace("{CHUNK_ID}", chunk_id)
-                                   .replace("{SOURCE_URL}", source_url or "")
-                                   .replace("{TEXT}", text))
+                fb_wrote, fb_touched, fb_rel = self._process_messages(fb_messages, prefix="fb-")
+                wrote = wrote or fb_wrote
+                touched += fb_touched
+                relations_to_retry += fb_rel
 
-                result2 = asyncio.run(self.run_agent(fallback_prompt))
-                messages2 = result2.get("messages") if isinstance(result2, dict) else []
+                if not wrote:
+                    exec_wrote2, exec_touched2, exec_rel2 = self._execute_suggested_calls_from_last_ai(fb_messages)
+                    wrote = wrote or exec_wrote2
+                    touched += exec_touched2
+                    relations_to_retry += exec_rel2
 
-                if messages2:
-                    last_message2 = messages2[-1]
-                    logger.info(f"[agent] fallback output doc={source_id} {chunk_id}:\n{TextUtils.truncate_text(getattr(last_message2, 'content', ''), LOG_LLM_OUTPUT_MAX)}")
-
-                # Process fallback messages
-                for i, message in enumerate(messages2 or [], start=1):
-                    try:
-                        if isinstance(message, AIMessage) and getattr(message, "tool_calls", None):
-                            for tool_call in message.tool_calls:
-                                logger.info(f"[agent] fb-ai#{i} tool_call name={tool_call.get('name')} args={TextUtils.truncate_text(tool_call.get('args'), LOG_TOOL_PREVIEW_MAX)}")
-
-                        elif isinstance(message, ToolMessage):
-                            logger.info(f"[agent] fb-tool#{i} name={message.name} result={TextUtils.truncate_text(message.content, LOG_TOOL_PREVIEW_MAX)}")
-
-                            if message.name in {"create_entities", "create_relations", "add_observations"}:
-                                content = (message.content or "") if isinstance(message.content, str) else json.dumps(message.content)
-                                if not str(content).lower().startswith("error"):
-                                    wrote = True
-
-                            # Collect touched entities from fallback
-                            with contextlib.suppress(Exception):
-                                raw = message.content
-                                data = None
-
-                                if isinstance(raw, str):
-                                    with contextlib.suppress(Exception):
-                                        data = json.loads(raw)
-                                elif isinstance(raw, (dict, list)):
-                                    data = raw
-
-                                if message.name == "add_observations" and isinstance(data, list):
-                                    touched += [d.get("entityName") for d in data if isinstance(d, dict) and isinstance(d.get("entityName"), str)]
-
-                                if message.name == "create_entities" and isinstance(data, list):
-                                    touched += [d.get("name") for d in data if isinstance(d, dict) and isinstance(d.get("name"), str)]
-
-                                if message.name == "create_relations" and isinstance(data, list):
-                                    for relation in data:
-                                        if isinstance(relation, dict):
-                                            relations_to_retry.append(relation)
-
-                    except Exception:
-                        logger.info(f"[agent] fb-msg#{i} (unparsable)")
-
-                # Try suggested calls from fallback
-                if not wrote and messages2 and isinstance(messages2[-1], AIMessage):
-                    if suggested_calls2 := ToolCallExtractor.extract_tool_calls(
-                        getattr(messages2[-1], "content", "")
-                    ):
-                        exec_wrote2, exec_touched2 = self.execute_tool_calls(suggested_calls2)
-                        wrote = exec_wrote2 or wrote
-                        touched += exec_touched2
-                        relations_to_retry += self.extract_relations_from_calls(suggested_calls2)
-
-            # Final programmatic fallback: ensure at least one write
+            # 4) Final programmatic fallback: ensure at least one write
             if not wrote and text and text.strip():
-                try:
-                    doc_entity = f"Document {source_id}"
-                    logger.warning(f"[agent] forcing minimal write for doc={source_id} {chunk_id}")
+                fw_wrote, fw_touched = self._force_minimal_write(source_id, chunk_id, source_url, text)
+                wrote = wrote or fw_wrote
+                touched += fw_touched
 
-                    # Create Document + Evidence entities
-                    try:
-                        entities_payload = {"entities": [
-                            {"name": doc_entity, "type": "Document", "observations": []},
-                            {"name": f"Evidence {source_id}-{chunk_id}", "type": "Evidence", 
-                             "observations": [f"srcId={source_id}", f"chunk={chunk_id}", f"url={source_url or ''}"]}
-                        ]}
-                        result_create = self.neo4j_connector.invoke_tool_by_name("create_entities", entities_payload)
-                        logger.info(f"[agent] forced create_entities result: {TextUtils.truncate_text(result_create, LOG_TOOL_PREVIEW_MAX)}")
-                    except Exception as exc:
-                        logger.warning(f"[agent] forced create_entities failed: {exc}")
-
-                    # Add observations to Document
-                    try:
-                        obs_text = text if len(text) <= 1500 else text[:1500]
-                        observations_payload = {"observations": [{"entityName": doc_entity, "observations": [obs_text]}]}
-                        result_obs = self.neo4j_connector.invoke_tool_by_name("add_observations", observations_payload)
-                        logger.info(f"[agent] forced add_observations result: {TextUtils.truncate_text(result_obs, LOG_TOOL_PREVIEW_MAX)}")
-                    except Exception as exc:
-                        logger.warning(f"[agent] forced add_observations failed: {exc}")
-
-                    # Create evidence relation
-                    try:
-                        self.neo4j_connector.invoke_tool_by_name("create_relations", {"relations": [{
-                            "source": doc_entity,
-                            "relationType": "evidence",
-                            "target": f"Evidence {source_id}-{chunk_id}"
-                        }]})
-                    except Exception as exc:
-                        logger.warning(f"[agent] forced evidence relation failed: {exc}")
-
-                    touched.append(doc_entity)
-                    wrote = True
-
-                except Exception as exc:
-                    logger.error(f"[agent] forced write failed doc={source_id} {chunk_id}: {exc}")
-
-            # Ensure evidence links for all touched entities
+            # 5) Ensure evidence links for all touched entities
             if touched:
-                seen = set()
-                touched_unique = [name for name in touched if isinstance(name, str) and name and (name not in seen and not seen.add(name))]
-                self.ensure_evidence_links(touched_unique, source_id, chunk_id, source_url)
+                self.ensure_evidence_links(self._dedupe_preserve_order(touched), source_id, chunk_id, source_url)
 
-            # Retry domain relations at the end
-            if relations_to_retry:
-                dedup_key = set()
-                final_relations = []
-
-                for relation in relations_to_retry:
-                    if not isinstance(relation, dict):
-                        continue
-
-                    source = relation.get("source")
-                    target = relation.get("target")
-                    relation_type = relation.get("relationType") or relation.get("predicate")
-
-                    # Handle dict endpoints
-                    if isinstance(source, dict):
-                        source = source.get("name")
-                    if isinstance(target, dict):
-                        target = target.get("name")
-
-                    key = (source, relation_type, target)
-                    if all(isinstance(x, str) and x for x in key) and key not in dedup_key:
-                        final_relations.append({"source": source, "relationType": relation_type, "target": target})
-                        dedup_key.add(key)
-
-                if final_relations:
-                    try:
-                        self.neo4j_connector.invoke_tool_by_name("create_relations", {"relations": final_relations})
-                        logger.info(f"[agent] retried {len(final_relations)} domain relations at end of chunk")
-                    except Exception as exc:
-                        logger.warning(f"[agent] retrying relations failed: {exc}")
+            # 6) Retry domain relations at the end
+            self._retry_relations(relations_to_retry)
 
             logger.info(f"[agent] done for doc={source_id} {chunk_id}; messages={len(messages) if messages else 0}")
 
@@ -1287,7 +1313,7 @@ class DocumentProcessor:
         text = self.paperless_processor.extract_text(detailed)
 
         if not text:
-            # Try fallback from metadata
+            # Try to fall back from metadata
             fallback = " ".join([
                 str(detailed.get("title") or ""),
                 str(detailed.get("notes") or ""),
@@ -1375,13 +1401,13 @@ class DocumentProcessor:
 class SchedulerCoordinator:
     """Coordinates scheduled execution and handles concurrency."""
 
-    def __init__(self, document_processor: DocumentProcessor):
-        self.document_processor = document_processor
+    def __init__(self, processor: DocumentProcessor):
+        self.document_processor = processor
         self.run_lock = threading.Lock()
         self.stop_event = threading.Event()
 
     def run_scheduled_job(self):
-        """Execute main processing job if not already running."""
+        """Execute the main processing job if not already running."""
         if self.stop_event.is_set():
             return
 

@@ -76,7 +76,7 @@ services:
       PAPERLESS_URL: "http://paperless:8000"
       PAPERLESS_TOKEN_FILE: "/bootstrap/paperless_token.txt"
       OLLAMA_URL: "http://ollama:11434"
-      OLLAMA_MODEL: "llama31-kb"
+      OLLAMA_MODEL: "gpt-oss:20b"
       # Primary Neo4j vars
       NEO4J_URL: "bolt://host.docker.internal:7687"
       NEO4J_USERNAME: ${NEO4J_USERNAME}

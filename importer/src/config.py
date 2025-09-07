@@ -13,7 +13,7 @@ class Config:
 
     # Ollama Configuration
     OLLAMA_URL: str = os.getenv("OLLAMA_URL", "http://ollama:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama31-kb")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
 
     # Neo4j Configuration
     NEO4J_HOST: str = os.getenv("NEO4J_HOST", "host.docker.internal")
