@@ -15,3 +15,32 @@ dependencies = [
     "schedule>=1.2.0",
     "loguru>=0.7.0",
 ]
+
+[project.optional-dependencies]
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocs-mermaid2-plugin>=1.1.0",
+    "mkdocstrings[python]>=0.25.0",
+    "mike>=2.1.0",
+    "griffe>=0.48.0",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.0",
+    "pytest-cov>=5.0.0",
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocs-mermaid2-plugin>=1.1.0",
+    "mkdocstrings[python]>=0.25.0",
+    "mike>=2.1.0",
+    "griffe>=0.48.0",
+    "pdm>=2.26.0",    
+]
+
+[tool.pdm.scripts]
+docs-serve = "mkdocs serve -a localhost:12000"
+docs-build = "mkdocs build"
+docs-deploy-version = "python -m kb_docs_cli deploy_version"
+docs-set-default = "python -m kb_docs_cli set_default"
