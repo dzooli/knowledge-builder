@@ -107,27 +107,26 @@ class AgentOrchestrator:
         logger.info(f"[agent] loaded {len(tools)} tools: {[t.name for t in tools]}")
 
         model = ChatOllama(
-            model=Config.OLLAMA_MODEL, 
+            model=Config.OLLAMA_MODEL,
             base_url=Config.OLLAMA_URL,
             temperature=0.1,  # Low temperature for more consistent tool usage
             # Remove format="json" as it may confuse the ReAct agent
         )
 
         # Configure the agent with recursion limits and timeout
-        graph = create_react_agent(
-            model,
-            tools
-        )
+        graph = create_react_agent(model, tools)
 
         # Set recursion and step limits
         config = {
             "recursion_limit": 15,  # Limit recursive calls
-            "step_timeout": 60,     # 60 second timeout per step
+            "step_timeout": 60,  # 60 second timeout per step
         }
 
         state: Any = {"messages": prompt}
 
-        logger.info(f"[agent] invoking agent with prompt length: {len(prompt)}, recursion_limit=15")
+        logger.info(
+            f"[agent] invoking agent with prompt length: {len(prompt)}, recursion_limit=15"
+        )
 
         try:
             result = await graph.ainvoke(cast(Any, state), config=config)
@@ -142,15 +141,19 @@ class AgentOrchestrator:
             logger.info(f"[agent] received {len(messages)} messages from agent")
             for i, msg in enumerate(messages[-3:]):  # Log last 3 messages
                 msg_type = type(msg).__name__
-                content_preview = str(getattr(msg, 'content', ''))[:200]
-                tool_calls = getattr(msg, 'tool_calls', None)
-                logger.info(f"[agent] message {i}: {msg_type} - {content_preview} - tool_calls: {len(tool_calls) if tool_calls else 0}")
+                content_preview = str(getattr(msg, "content", ""))[:200]
+                tool_calls = getattr(msg, "tool_calls", None)
+                logger.info(
+                    f"[agent] message {i}: {msg_type} - {content_preview} - tool_calls: {len(tool_calls) if tool_calls else 0}"
+                )
         else:
             logger.error("[agent] received no messages from agent")
 
         return result
 
-    def extract_relations_from_calls(self, calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def extract_relations_from_calls(
+        self, calls: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """Extract relations from tool calls."""
         relations = []
         for call in calls or []:
@@ -170,7 +173,9 @@ class AgentOrchestrator:
         observations = params.get("observations") or []
         names: List[str] = []
         for observation in observations:
-            entity_name = observation.get("entityName") if isinstance(observation, dict) else None
+            entity_name = (
+                observation.get("entityName") if isinstance(observation, dict) else None
+            )
             if isinstance(entity_name, dict):
                 entity_name = entity_name.get("name")
             if isinstance(entity_name, str):
@@ -200,14 +205,23 @@ class AgentOrchestrator:
                 source = source.get("name")
             if isinstance(target, dict):
                 target = target.get("name")
-            if isinstance(source, str) and source and isinstance(target, str) and target:
+            if (
+                isinstance(source, str)
+                and source
+                and isinstance(target, str)
+                and target
+            ):
                 names.extend([source, target])
         return names
 
     @staticmethod
     def _dedupe_preserve_order(items: List[str]) -> List[str]:
         seen: set[str] = set()
-        return [x for x in items if isinstance(x, str) and x and (x not in seen and not seen.add(x))]
+        return [
+            x
+            for x in items
+            if isinstance(x, str) and x and (x not in seen and not seen.add(x))
+        ]
 
     def extract_entities_from_calls(self, calls: List[Dict[str, Any]]) -> List[str]:
         """Extract entity names from tool calls with reduced complexity."""
@@ -232,7 +246,12 @@ class AgentOrchestrator:
         create_entities = [c for c in calls if c.get("name") == "create_entities"]
         add_observations = [c for c in calls if c.get("name") == "add_observations"]
         create_relations = [c for c in calls if c.get("name") == "create_relations"]
-        other = [c for c in calls if c.get("name") not in {"create_entities", "add_observations", "create_relations"}]
+        other = [
+            c
+            for c in calls
+            if c.get("name")
+            not in {"create_entities", "add_observations", "create_relations"}
+        ]
         # Ensure add_observations precedes create_entities per UPSERT workflow
         return add_observations + create_entities + other + create_relations
 
@@ -246,7 +265,9 @@ class AgentOrchestrator:
             return False
         return not (isinstance(result, str) and str(result).lower().startswith("error"))
 
-    def _collect_touched_names(self, tool_name: str, params: Dict[str, Any]) -> List[str]:
+    def _collect_touched_names(
+        self, tool_name: str, params: Dict[str, Any]
+    ) -> List[str]:
         extractors = {
             "create_entities": self._extract_names_from_create_entities,
             "add_observations": self._extract_names_from_add_observations,
@@ -262,11 +283,17 @@ class AgentOrchestrator:
             if self._is_valid_call(name, params):
                 yield i, cast(str, name), cast(Dict[str, Any], params)
 
-    def _invoke_and_collect(self, index: int, name: str, params: Dict[str, Any]) -> tuple[bool, List[str]]:
+    def _invoke_and_collect(
+        self, index: int, name: str, params: Dict[str, Any]
+    ) -> tuple[bool, List[str]]:
         try:
-            logger.info(f"[agent] executing suggested tool #{index}: {name} args={TextUtils.truncate_text(params, Config.LOG_TOOL_PREVIEW_MAX)}")
+            logger.info(
+                f"[agent] executing suggested tool #{index}: {name} args={TextUtils.truncate_text(params, Config.LOG_TOOL_PREVIEW_MAX)}"
+            )
             result = self.neo4j_connector.invoke_tool_by_name(name, params)
-            logger.info(f"[agent] suggested tool result #{index} {name}: {TextUtils.truncate_text(result, Config.LOG_TOOL_PREVIEW_MAX)}")
+            logger.info(
+                f"[agent] suggested tool result #{index} {name}: {TextUtils.truncate_text(result, Config.LOG_TOOL_PREVIEW_MAX)}"
+            )
             wrote = self._is_successful_write(name, result)
             touched = self._collect_touched_names(name, params)
             return wrote, touched
@@ -291,7 +318,9 @@ class AgentOrchestrator:
 
         return wrote, self._dedupe_preserve_order(touched)
 
-    def ensure_evidence_links(self, entity_names: List[str], source_id: str, chunk_id: str, source_url: str):
+    def ensure_evidence_links(
+        self, entity_names: List[str], source_id: str, chunk_id: str, source_url: str
+    ):
         """Ensure an evidence entity exists and is linked to all touched entities."""
         if not entity_names:
             return
@@ -300,24 +329,42 @@ class AgentOrchestrator:
 
         try:
             # Upsert Evidence entity
-            evidence_payload = {"entities": [{
-                "name": evidence_name,
-                "type": "Evidence",
-                "observations": [f"srcId={source_id}", f"chunk={chunk_id}", f"url={source_url or ''}"]
-            }]}
-            self.neo4j_connector.invoke_tool_by_name("create_entities", evidence_payload)
+            evidence_payload = {
+                "entities": [
+                    {
+                        "name": evidence_name,
+                        "type": "Evidence",
+                        "observations": [
+                            f"srcId={source_id}",
+                            f"chunk={chunk_id}",
+                            f"url={source_url or ''}",
+                        ],
+                    }
+                ]
+            }
+            self.neo4j_connector.invoke_tool_by_name(
+                "create_entities", evidence_payload
+            )
         except Exception as exc:
             logger.warning(f"[agent] evidence entity upsert failed: {exc}")
 
         # Create evidence relations from all entities to the evidence
-        sources = [name for name in entity_names if isinstance(name, str) and name and name != evidence_name]
+        sources = [
+            name
+            for name in entity_names
+            if isinstance(name, str) and name and name != evidence_name
+        ]
         if relations := [
             {"source": name, "relationType": "evidence", "target": evidence_name}
             for name in sources
         ]:
             try:
-                self.neo4j_connector.invoke_tool_by_name("create_relations", {"relations": relations})
-                logger.info(f"[agent] linked {len(relations)} entities to evidence {evidence_name}")
+                self.neo4j_connector.invoke_tool_by_name(
+                    "create_relations", {"relations": relations}
+                )
+                logger.info(
+                    f"[agent] linked {len(relations)} entities to evidence {evidence_name}"
+                )
             except Exception as exc:
                 logger.warning(f"[agent] evidence relation creation failed: {exc}")
 
@@ -328,22 +375,30 @@ class AgentOrchestrator:
         if Config.LOG_CHUNK_FULL:
             logger.info(f"[chunk] text doc={source_id} {chunk_id}:\n{text}")
         else:
-            logger.info(f"[chunk] preview doc={source_id} {chunk_id}:\n{TextUtils.truncate_text(text, Config.LOG_CHUNK_PREVIEW_MAX)}")
+            logger.info(
+                f"[chunk] preview doc={source_id} {chunk_id}:\n{TextUtils.truncate_text(text, Config.LOG_CHUNK_PREVIEW_MAX)}"
+            )
 
     @staticmethod
-    def _build_prompt(tmpl: str, source_id: str, chunk_id: str, source_url: str, text: str) -> str:
-        return (tmpl
-                .replace("{SOURCE_ID}", source_id)
-                .replace("{CHUNK_ID}", chunk_id)
-                .replace("{SOURCE_URL}", source_url or "")
-                .replace("{TEXT}", text))
+    def _build_prompt(
+        tmpl: str, source_id: str, chunk_id: str, source_url: str, text: str
+    ) -> str:
+        return (
+            tmpl.replace("{SOURCE_ID}", source_id)
+            .replace("{CHUNK_ID}", chunk_id)
+            .replace("{SOURCE_URL}", source_url or "")
+            .replace("{TEXT}", text)
+        )
 
     def _run_agent_sync(self, prompt: str) -> List[Any]:
         try:
             # Set a timeout for the entire agent run
-            result = asyncio.wait_for(self.run_agent(prompt), timeout=300.0)  # 5 minute timeout
+            result = asyncio.wait_for(
+                self.run_agent(prompt), timeout=300.0
+            )  # 5 minute timeout
             result = asyncio.run(result)
-            return result.get("messages") if isinstance(result, dict) else []
+            messages = result.get("messages") if isinstance(result, dict) else []
+            return messages if isinstance(messages, list) else []
         except asyncio.TimeoutError:
             logger.error("[agent] agent execution timed out after 5 minutes")
             return []
@@ -352,15 +407,23 @@ class AgentOrchestrator:
             return []
 
     @staticmethod
-    def _log_last_message_output(messages: List[Any], source_id: str, chunk_id: str, prefix: str = ""):
+    def _log_last_message_output(
+        messages: List[Any], source_id: str, chunk_id: str, prefix: str = ""
+    ):
         if messages:
             last_message = messages[-1]
-            content = getattr(last_message, 'content', '')
+            content = getattr(last_message, "content", "")
             try:
-                content_text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, indent=2)
+                content_text = (
+                    content
+                    if isinstance(content, str)
+                    else json.dumps(content, ensure_ascii=False, indent=2)
+                )
             except Exception:
                 content_text = str(content)
-            logger.info(f"[agent] {prefix}output doc={source_id} {chunk_id} (full LLM response):\n{content_text}")
+            logger.info(
+                f"[agent] {prefix}output doc={source_id} {chunk_id} (full LLM response):\n{content_text}"
+            )
         else:
             logger.warning(f"[agent] {prefix}no output doc={source_id} {chunk_id}")
 
@@ -381,12 +444,27 @@ class AgentOrchestrator:
             return None
         return raw if isinstance(raw, (dict, list)) else None
 
-    def _handle_tool_message(self, message: Any, index: int, prefix: str = "") -> tuple[bool, List[str], List[Dict[str, Any]]]:
-        logger.info(f"[agent] {prefix}tool#{index} name={message.name} result={TextUtils.truncate_text(message.content, Config.LOG_TOOL_PREVIEW_MAX)}")
+    def _handle_tool_message(
+        self, message: Any, index: int, prefix: str = ""
+    ) -> tuple[bool, List[str], List[Dict[str, Any]]]:
+        logger.info(
+            f"[agent] {prefix}tool#{index} name={message.name} result={TextUtils.truncate_text(message.content, Config.LOG_TOOL_PREVIEW_MAX)}"
+        )
 
         wrote = False
-        if message.name in {"create_entities", "create_relations", "add_observations", "delete_entities", "delete_relations", "delete_observations"}:
-            content = (message.content or "") if isinstance(message.content, str) else json.dumps(message.content)
+        if message.name in {
+            "create_entities",
+            "create_relations",
+            "add_observations",
+            "delete_entities",
+            "delete_relations",
+            "delete_observations",
+        }:
+            content = (
+                (message.content or "")
+                if isinstance(message.content, str)
+                else json.dumps(message.content)
+            )
             if not str(content).lower().startswith("error"):
                 wrote = True
 
@@ -395,15 +473,31 @@ class AgentOrchestrator:
         data = self._parse_message_data(message.content)
 
         if message.name == "add_observations" and isinstance(data, list):
-            touched += [d.get("entityName") for d in data if isinstance(d, dict) and isinstance(d.get("entityName"), str)]
+            touched += [
+                str(d.get("entityName"))
+                for d in data
+                if isinstance(d, dict)
+                and isinstance(d.get("entityName"), str)
+                and d.get("entityName") is not None
+            ]
         if message.name == "create_entities" and isinstance(data, list):
-            touched += [d.get("name") for d in data if isinstance(d, dict) and isinstance(d.get("name"), str)]
+            touched += [
+                str(d.get("name"))
+                for d in data
+                if isinstance(d, dict)
+                and isinstance(d.get("name"), str)
+                and d.get("name") is not None
+            ]
         if message.name == "create_relations" and isinstance(data, list):
-            relations_to_retry.extend(relation for relation in data if isinstance(relation, dict))
+            relations_to_retry.extend(
+                relation for relation in data if isinstance(relation, dict)
+            )
 
         return wrote, touched, relations_to_retry
 
-    def _process_messages(self, messages: List[Any], prefix: str = "") -> tuple[bool, List[str], List[Dict[str, Any]]]:
+    def _process_messages(
+        self, messages: List[Any], prefix: str = ""
+    ) -> tuple[bool, List[str], List[Dict[str, Any]]]:
         wrote = False
         touched: List[str] = []
         relations_to_retry: List[Dict[str, Any]] = []
@@ -427,20 +521,30 @@ class AgentOrchestrator:
 
         # Debug logging
         if not has_tool_calls:
-            logger.warning(f"[agent] {prefix}no tool calls detected in {len(messages)} messages")
+            logger.warning(
+                f"[agent] {prefix}no tool calls detected in {len(messages)} messages"
+            )
             if messages:
                 last_msg = messages[-1]
                 if isinstance(last_msg, AIMessage):
-                    content = getattr(last_msg, 'content', '')
+                    content = getattr(last_msg, "content", "")
                     try:
-                        content_text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, indent=2)
+                        content_text = (
+                            content
+                            if isinstance(content, str)
+                            else json.dumps(content, ensure_ascii=False, indent=2)
+                        )
                     except Exception:
                         content_text = str(content)
-                    logger.info(f"[agent] {prefix}last AI message content (full): {content_text}")
+                    logger.info(
+                        f"[agent] {prefix}last AI message content (full): {content_text}"
+                    )
 
         return wrote, touched, relations_to_retry
 
-    def _execute_suggested_calls_from_last_ai(self, messages: List[Any]) -> tuple[bool, List[str], List[Dict[str, Any]]]:
+    def _execute_suggested_calls_from_last_ai(
+        self, messages: List[Any]
+    ) -> tuple[bool, List[str], List[Dict[str, Any]]]:
         if not messages or not isinstance(messages[-1], AIMessage):
             return False, [], []
         last_ai = cast(AIMessage, messages[-1])
@@ -448,7 +552,12 @@ class AgentOrchestrator:
 
         def _normalize_quotes(s: str) -> str:
             # Replace common smart quotes with ASCII equivalents to improve JSON parsing robustness
-            return s.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
+            return (
+                s.replace("“", '"')
+                .replace("”", '"')
+                .replace("‘", "'")
+                .replace("’", "'")
+            )
 
         def _strip_code_fences(s: str) -> str:
             if "```" in s:
@@ -496,7 +605,7 @@ class AgentOrchestrator:
                             elif ch == close_ch:
                                 depth -= 1
                                 if depth == 0:
-                                    return s[start:idx + 1]
+                                    return s[start : idx + 1]
             return None
 
         def _parse_calls_from_content(s: str) -> List[Dict[str, Any]]:
@@ -514,7 +623,9 @@ class AgentOrchestrator:
                     continue
                 # Schema with method/params
                 method = item.get("method")
-                params = item.get("params") if isinstance(item.get("params"), dict) else {}
+                params = (
+                    item.get("params") if isinstance(item.get("params"), dict) else {}
+                )
                 tool_name = None
                 arguments: Any = {}
                 if method == "tools/call":
@@ -523,7 +634,11 @@ class AgentOrchestrator:
                 # Already-normalized schema (legacy)
                 if not tool_name and isinstance(item.get("name"), str):
                     tool_name = item.get("name")
-                    arguments = item.get("parameters") if isinstance(item.get("parameters"), dict) else {}
+                    arguments = (
+                        item.get("parameters")
+                        if isinstance(item.get("parameters"), dict)
+                        else {}
+                    )
                 if isinstance(tool_name, str) and isinstance(arguments, dict):
                     normalized.append({"name": tool_name, "parameters": arguments})
             return normalized
@@ -544,9 +659,13 @@ class AgentOrchestrator:
         exec_wrote, exec_touched = self.execute_tool_calls(calls)
         return exec_wrote, exec_touched, self.extract_relations_from_calls(calls)
 
-    def _force_minimal_write(self, source_id: str, chunk_id: str, source_url: str, text: str) -> tuple[bool, List[str]]:
+    def _force_minimal_write(
+        self, source_id: str, chunk_id: str, source_url: str, text: str
+    ) -> tuple[bool, List[str]]:
         try:
-            logger.warning(f"[agent] forcing minimal write with basic entity extraction for doc={source_id} {chunk_id}")
+            logger.warning(
+                f"[agent] forcing minimal write with basic entity extraction for doc={source_id} {chunk_id}"
+            )
 
             # Try to extract at least some basic entities from the text
             entities_to_create = []
@@ -554,27 +673,36 @@ class AgentOrchestrator:
 
             # Create Evidence entity
             evidence_entity = f"Evidence {source_id}-{chunk_id}"
-            entities_to_create.append({
-                "name": evidence_entity, 
-                "type": "Evidence", 
-                "observations": [f"srcId={source_id}", f"chunk={chunk_id}", f"url={source_url or ''}"]
-            })
+            entities_to_create.append(
+                {
+                    "name": evidence_entity,
+                    "type": "Evidence",
+                    "observations": [
+                        f"srcId={source_id}",
+                        f"chunk={chunk_id}",
+                        f"url={source_url or ''}",
+                    ],
+                }
+            )
             created_entity_names.append(evidence_entity)
 
             # Simple heuristic extraction of potential entities
             import re
+
             words = text.split()
 
             # Look for capitalized words that might be proper nouns
             potential_entities = []
-            for i, word in enumerate(words[:50]):  # Only check first 50 words to avoid too much processing
+            for i, word in enumerate(
+                words[:50]
+            ):  # Only check first 50 words to avoid too much processing
                 # Remove punctuation and check if it starts with capital
-                clean_word = re.sub(r'[^\w\s]', '', word)
+                clean_word = re.sub(r"[^\w\s]", "", word)
                 if clean_word and clean_word[0].isupper() and len(clean_word) > 2:
                     # Look ahead for potential multi-word entities
                     entity_name = clean_word
                     if i + 1 < len(words):
-                        next_word = re.sub(r'[^\w\s]', '', words[i + 1])
+                        next_word = re.sub(r"[^\w\s]", "", words[i + 1])
                         if next_word and next_word[0].isupper() and len(next_word) > 1:
                             entity_name = f"{clean_word} {next_word}"
 
@@ -585,34 +713,43 @@ class AgentOrchestrator:
             for entity_name in potential_entities[:3]:
                 # Guess entity type based on context
                 entity_type = "Organization"
-                if any(word in text.lower() for word in ["person", "people", "said", "stated", "mr", "ms", "dr"]):
+                if any(
+                    word in text.lower()
+                    for word in ["person", "people", "said", "stated", "mr", "ms", "dr"]
+                ):
                     entity_type = "Person"
-                elif any(word in text.lower() for word in ["city", "country", "location", "address"]):
+                elif any(
+                    word in text.lower()
+                    for word in ["city", "country", "location", "address"]
+                ):
                     entity_type = "Location"
-                elif any(word in text.lower() for word in ["event", "meeting", "conference", "announcement"]):
+                elif any(
+                    word in text.lower()
+                    for word in ["event", "meeting", "conference", "announcement"]
+                ):
                     entity_type = "Event"
 
-                entities_to_create.append({
-                    "name": entity_name,
-                    "type": entity_type, 
-                    "observations": []
-                })
+                entities_to_create.append(
+                    {"name": entity_name, "type": entity_type, "observations": []}
+                )
                 created_entity_names.append(entity_name)
 
             # If no entities extracted, create a generic document entity
             if len(entities_to_create) == 1:  # Only Evidence entity
                 doc_entity = f"Document {source_id}"
-                entities_to_create.append({
-                    "name": doc_entity,
-                    "type": "Document",
-                    "observations": []
-                })
+                entities_to_create.append(
+                    {"name": doc_entity, "type": "Document", "observations": []}
+                )
                 created_entity_names.append(doc_entity)
 
             # Step 1: Create all entities
             entities_payload = {"entities": entities_to_create}
-            result_create = self.neo4j_connector.invoke_tool_by_name("create_entities", entities_payload)
-            logger.info(f"[agent] forced create_entities result: {TextUtils.truncate_text(result_create, Config.LOG_TOOL_PREVIEW_MAX)}")
+            result_create = self.neo4j_connector.invoke_tool_by_name(
+                "create_entities", entities_payload
+            )
+            logger.info(
+                f"[agent] forced create_entities result: {TextUtils.truncate_text(result_create, Config.LOG_TOOL_PREVIEW_MAX)}"
+            )
 
             # Step 2: Add observations to non-evidence entities
             if not str(result_create).lower().startswith("error"):
@@ -620,34 +757,56 @@ class AgentOrchestrator:
                     if entity_name != evidence_entity:
                         # Add relevant text snippet as observation
                         obs_text = text if len(text) <= 800 else text[:800]
-                        observations_payload = {"observations": [{"entityName": entity_name, "observations": [f"Mentioned in: {obs_text}"]}]}
-                        result_obs = self.neo4j_connector.invoke_tool_by_name("add_observations", observations_payload)
+                        observations_payload = {
+                            "observations": [
+                                {
+                                    "entityName": entity_name,
+                                    "observations": [f"Mentioned in: {obs_text}"],
+                                }
+                            ]
+                        }
+                        result_obs = self.neo4j_connector.invoke_tool_by_name(
+                            "add_observations", observations_payload
+                        )
                         logger.debug(f"[agent] added observations to {entity_name}")
 
                 # Step 3: Create evidence relations for all entities
                 relations = []
                 for entity_name in created_entity_names:
                     if entity_name != evidence_entity:
-                        relations.append({
-                            "source": entity_name,
-                            "relationType": "evidence",
-                            "target": evidence_entity
-                        })
+                        relations.append(
+                            {
+                                "source": entity_name,
+                                "relationType": "evidence",
+                                "target": evidence_entity,
+                            }
+                        )
 
                 if relations:
                     relations_payload = {"relations": relations}
-                    result_rel = self.neo4j_connector.invoke_tool_by_name("create_relations", relations_payload)
-                    logger.info(f"[agent] forced create_relations result: {TextUtils.truncate_text(result_rel, Config.LOG_TOOL_PREVIEW_MAX)}")
+                    result_rel = self.neo4j_connector.invoke_tool_by_name(
+                        "create_relations", relations_payload
+                    )
+                    logger.info(
+                        f"[agent] forced create_relations result: {TextUtils.truncate_text(result_rel, Config.LOG_TOOL_PREVIEW_MAX)}"
+                    )
 
-            logger.info(f"[agent] forced minimal write completed for doc={source_id} {chunk_id} - created {len(created_entity_names)} entities")
+            logger.info(
+                f"[agent] forced minimal write completed for doc={source_id} {chunk_id} - created {len(created_entity_names)} entities"
+            )
             return True, created_entity_names
 
         except Exception as exc:
-            logger.error(f"[agent] forced write failed doc={source_id} {chunk_id}: {exc}", exc_info=True)
+            logger.error(
+                f"[agent] forced write failed doc={source_id} {chunk_id}: {exc}",
+                exc_info=True,
+            )
             return False, []
 
     # New helpers for relation retry dedup/normalization
-    def _normalize_relation_for_retry(self, relation: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    def _normalize_relation_for_retry(
+        self, relation: Dict[str, Any]
+    ) -> Optional[Dict[str, str]]:
         if not isinstance(relation, dict):
             return None
         source: Any = relation.get("source")
@@ -658,7 +817,11 @@ class AgentOrchestrator:
         if isinstance(target, dict):
             target = target.get("name")
         if all(isinstance(x, str) and x for x in (source, relation_type, target)):
-            return {"source": cast(str, source), "relationType": cast(str, relation_type), "target": cast(str, target)}
+            return {
+                "source": cast(str, source),
+                "relationType": cast(str, relation_type),
+                "target": cast(str, target),
+            }
         return None
 
     @staticmethod
@@ -683,21 +846,34 @@ class AgentOrchestrator:
 
         if final_relations:
             try:
-                self.neo4j_connector.invoke_tool_by_name("create_relations", {"relations": final_relations})
-                logger.info(f"[agent] retried {len(final_relations)} domain relations at end of chunk")
+                self.neo4j_connector.invoke_tool_by_name(
+                    "create_relations", {"relations": final_relations}
+                )
+                logger.info(
+                    f"[agent] retried {len(final_relations)} domain relations at end of chunk"
+                )
             except Exception as exc:
                 logger.warning(f"[agent] retrying relations failed: {exc}")
 
-    def _generate_tool_calls_from_content(self, messages: List[Any], source_id: str, chunk_id: str, source_url: str, text: str) -> tuple[bool, List[str]]:
+    def _generate_tool_calls_from_content(
+        self,
+        messages: List[Any],
+        source_id: str,
+        chunk_id: str,
+        source_url: str,
+        text: str,
+    ) -> tuple[bool, List[str]]:
         """Generate comprehensive tool calls when the agent fails to use tools properly."""
         try:
             if not messages or not isinstance(messages[-1], AIMessage):
                 return False, []
 
             last_ai_message = messages[-1]
-            ai_content = getattr(last_ai_message, 'content', '')
+            ai_content = getattr(last_ai_message, "content", "")
 
-            logger.info(f"[agent] generating comprehensive tool calls from AI content for doc={source_id} {chunk_id}")
+            logger.info(
+                f"[agent] generating comprehensive tool calls from AI content for doc={source_id} {chunk_id}"
+            )
 
             # Try to parse entities mentioned in the AI response
             entities_to_create = []
@@ -705,6 +881,7 @@ class AgentOrchestrator:
 
             # Look for entities mentioned in AI response
             import re
+
             entity_patterns = [
                 r"(?:person|individual|people?):?\s*([A-Z][a-zA-Z\s]{2,30})",
                 r"(?:company|organization|corp|inc|ltd):?\s*([A-Z][a-zA-Z\s&]{2,40})",
@@ -719,11 +896,13 @@ class AgentOrchestrator:
                 for match in matches[:2]:  # Limit to 2 per type
                     clean_name = match.strip()
                     if len(clean_name) > 3 and clean_name not in created_names:
-                        entities_to_create.append({
-                            "name": clean_name,
-                            "type": entity_types[i],
-                            "observations": []
-                        })
+                        entities_to_create.append(
+                            {
+                                "name": clean_name,
+                                "type": entity_types[i],
+                                "observations": [],
+                            }
+                        )
                         created_names.append(clean_name)
 
             # If no entities found in AI response, fall back to text analysis
@@ -731,51 +910,82 @@ class AgentOrchestrator:
                 # Simple extraction from original text
                 words = text.split()
                 for word in words[:30]:
-                    clean_word = re.sub(r'[^\w\s]', '', word)
-                    if (clean_word and clean_word[0].isupper() and 
-                        len(clean_word) > 3 and clean_word not in created_names):
-                        entities_to_create.append({
-                            "name": clean_word,
-                            "type": "Concept",
-                            "observations": []
-                        })
+                    clean_word = re.sub(r"[^\w\s]", "", word)
+                    if (
+                        clean_word
+                        and clean_word[0].isupper()
+                        and len(clean_word) > 3
+                        and clean_word not in created_names
+                    ):
+                        entities_to_create.append(
+                            {"name": clean_word, "type": "Concept", "observations": []}
+                        )
                         created_names.append(clean_word)
                         if len(entities_to_create) >= 3:
                             break
 
             # Always create Evidence entity
             evidence_name = f"Evidence {source_id}-{chunk_id}"
-            entities_to_create.append({
-                "name": evidence_name,
-                "type": "Evidence",
-                "observations": [f"srcId={source_id}", f"chunk={chunk_id}", f"url={source_url or ''}"]
-            })
+            entities_to_create.append(
+                {
+                    "name": evidence_name,
+                    "type": "Evidence",
+                    "observations": [
+                        f"srcId={source_id}",
+                        f"chunk={chunk_id}",
+                        f"url={source_url or ''}",
+                    ],
+                }
+            )
             created_names.append(evidence_name)
 
             if entities_to_create:
                 # Create all entities
                 entities_payload = {"entities": entities_to_create}
-                result = self.neo4j_connector.invoke_tool_by_name("create_entities", entities_payload)
-                logger.info(f"[agent] generated create_entities result: {TextUtils.truncate_text(result, Config.LOG_TOOL_PREVIEW_MAX)}")
+                result = self.neo4j_connector.invoke_tool_by_name(
+                    "create_entities", entities_payload
+                )
+                logger.info(
+                    f"[agent] generated create_entities result: {TextUtils.truncate_text(result, Config.LOG_TOOL_PREVIEW_MAX)}"
+                )
 
                 # Add observations to non-evidence entities
                 for entity_name in created_names:
                     if entity_name != evidence_name:
                         obs_text = text if len(text) <= 600 else text[:600]
-                        observations_payload = {"observations": [{"entityName": entity_name, "observations": [f"Context: {obs_text}"]}]}
-                        self.neo4j_connector.invoke_tool_by_name("add_observations", observations_payload)
+                        observations_payload = {
+                            "observations": [
+                                {
+                                    "entityName": entity_name,
+                                    "observations": [f"Context: {obs_text}"],
+                                }
+                            ]
+                        }
+                        self.neo4j_connector.invoke_tool_by_name(
+                            "add_observations", observations_payload
+                        )
 
                 # Create evidence relations
                 relations = []
                 for entity_name in created_names:
                     if entity_name != evidence_name:
-                        relations.append({"source": entity_name, "relationType": "evidence", "target": evidence_name})
+                        relations.append(
+                            {
+                                "source": entity_name,
+                                "relationType": "evidence",
+                                "target": evidence_name,
+                            }
+                        )
 
                 if relations:
                     relations_payload = {"relations": relations}
-                    self.neo4j_connector.invoke_tool_by_name("create_relations", relations_payload)
+                    self.neo4j_connector.invoke_tool_by_name(
+                        "create_relations", relations_payload
+                    )
 
-                logger.info(f"[agent] generated comprehensive tool calls completed for doc={source_id} {chunk_id} - created {len(created_names)} entities")
+                logger.info(
+                    f"[agent] generated comprehensive tool calls completed for doc={source_id} {chunk_id} - created {len(created_names)} entities"
+                )
                 return True, created_names
 
         except Exception as exc:
@@ -795,63 +1005,105 @@ class AgentOrchestrator:
 
         try:
             # 1) Primary prompt run
-            logger.info(f"[agent] starting primary prompt for doc={source_id} {chunk_id}")
-            prompt = self._build_prompt(PROMPT_TMPL, source_id, chunk_id, source_url, text)
+            logger.info(
+                f"[agent] starting primary prompt for doc={source_id} {chunk_id}"
+            )
+            prompt = self._build_prompt(
+                PROMPT_TMPL, source_id, chunk_id, source_url, text
+            )
             messages = self._run_agent_sync(prompt)
             self._log_last_message_output(messages, source_id, chunk_id)
 
             wrote, touched, relations_to_retry = self._process_messages(messages)
-            logger.info(f"[agent] primary prompt result doc={source_id} {chunk_id}: wrote={wrote}, touched_entities={len(touched)}")
+            logger.info(
+                f"[agent] primary prompt result doc={source_id} {chunk_id}: wrote={wrote}, touched_entities={len(touched)}"
+            )
 
             # 2) If no writes, try suggested calls from the last AI message
             if not wrote:
-                logger.info(f"[agent] no writes detected, trying suggested tool calls for doc={source_id} {chunk_id}")
-                exec_wrote, exec_touched, exec_rel = self._execute_suggested_calls_from_last_ai(messages)
+                logger.info(
+                    f"[agent] no writes detected, trying suggested tool calls for doc={source_id} {chunk_id}"
+                )
+                exec_wrote, exec_touched, exec_rel = (
+                    self._execute_suggested_calls_from_last_ai(messages)
+                )
                 wrote = wrote or exec_wrote
                 touched += exec_touched
                 relations_to_retry += exec_rel
-                logger.info(f"[agent] suggested calls result doc={source_id} {chunk_id}: wrote={exec_wrote}, additional_touched={len(exec_touched)}")
+                logger.info(
+                    f"[agent] suggested calls result doc={source_id} {chunk_id}: wrote={exec_wrote}, additional_touched={len(exec_touched)}"
+                )
 
                 # If still no writes, try generating tool calls from the AI response text
                 if not exec_wrote and messages:
-                    logger.info(f"[agent] no suggested calls worked, trying to generate tool calls from content for doc={source_id} {chunk_id}")
-                    generated_wrote, generated_touched = self._generate_tool_calls_from_content(messages, source_id, chunk_id, source_url, text)
+                    logger.info(
+                        f"[agent] no suggested calls worked, trying to generate tool calls from content for doc={source_id} {chunk_id}"
+                    )
+                    generated_wrote, generated_touched = (
+                        self._generate_tool_calls_from_content(
+                            messages, source_id, chunk_id, source_url, text
+                        )
+                    )
                     wrote = wrote or generated_wrote
                     touched += generated_touched
-                    logger.info(f"[agent] generated calls result doc={source_id} {chunk_id}: wrote={generated_wrote}, additional_touched={len(generated_touched)}")
+                    logger.info(
+                        f"[agent] generated calls result doc={source_id} {chunk_id}: wrote={generated_wrote}, additional_touched={len(generated_touched)}"
+                    )
 
             # 4) Final programmatic fallback: ensure at least one write
             if not wrote and text and text.strip():
-                logger.warning(f"[agent] forcing minimal write for doc={source_id} {chunk_id} (no AI writes succeeded)")
-                fw_wrote, fw_touched = self._force_minimal_write(source_id, chunk_id, source_url, text)
+                logger.warning(
+                    f"[agent] forcing minimal write for doc={source_id} {chunk_id} (no AI writes succeeded)"
+                )
+                fw_wrote, fw_touched = self._force_minimal_write(
+                    source_id, chunk_id, source_url, text
+                )
                 wrote = wrote or fw_wrote
                 touched += fw_touched
-                logger.info(f"[agent] forced write result doc={source_id} {chunk_id}: wrote={fw_wrote}, touched={len(fw_touched)}")
+                logger.info(
+                    f"[agent] forced write result doc={source_id} {chunk_id}: wrote={fw_wrote}, touched={len(fw_touched)}"
+                )
 
             # 5) Ensure evidence links for all touched entities
             final_touched = self._dedupe_preserve_order(touched)
             if final_touched:
-                logger.info(f"[agent] creating evidence links for doc={source_id} {chunk_id}: {len(final_touched)} entities")
-                self.ensure_evidence_links(final_touched, source_id, chunk_id, source_url)
+                logger.info(
+                    f"[agent] creating evidence links for doc={source_id} {chunk_id}: {len(final_touched)} entities"
+                )
+                self.ensure_evidence_links(
+                    final_touched, source_id, chunk_id, source_url
+                )
             else:
-                logger.warning(f"[agent] no entities to link to evidence for doc={source_id} {chunk_id}")
+                logger.warning(
+                    f"[agent] no entities to link to evidence for doc={source_id} {chunk_id}"
+                )
 
             # 6) Retry domain relations at the end
             if relations_to_retry:
-                logger.info(f"[agent] retrying {len(relations_to_retry)} relations for doc={source_id} {chunk_id}")
+                logger.info(
+                    f"[agent] retrying {len(relations_to_retry)} relations for doc={source_id} {chunk_id}"
+                )
                 self._retry_relations(relations_to_retry)
 
             # Final success summary
             total_touched = len(final_touched)
-            logger.info(f"[chunk] COMPLETED doc={source_id} {chunk_id}: wrote={wrote}, total_entities={total_touched}, relations_retried={len(relations_to_retry)}")
+            logger.info(
+                f"[chunk] COMPLETED doc={source_id} {chunk_id}: wrote={wrote}, total_entities={total_touched}, relations_retried={len(relations_to_retry)}"
+            )
 
         except Exception as exc:
-            logger.error(f"[chunk] FAILED doc={source_id} {chunk_id}: {exc}", exc_info=True)
+            logger.error(
+                f"[chunk] FAILED doc={source_id} {chunk_id}: {exc}", exc_info=True
+            )
             # Try to ensure at least basic tracking even on failure
             try:
                 if not wrote and text and text.strip():
-                    logger.info(f"[chunk] attempting emergency fallback for failed doc={source_id} {chunk_id}")
+                    logger.info(
+                        f"[chunk] attempting emergency fallback for failed doc={source_id} {chunk_id}"
+                    )
                     self._force_minimal_write(source_id, chunk_id, source_url, text)
             except Exception as fallback_exc:
-                logger.error(f"[chunk] emergency fallback also failed for doc={source_id} {chunk_id}: {fallback_exc}")
+                logger.error(
+                    f"[chunk] emergency fallback also failed for doc={source_id} {chunk_id}: {fallback_exc}"
+                )
             raise
