@@ -1,0 +1,36 @@
+name: docs
+
+on:
+    push:
+        branches: [master]
+        paths:
+            - "docs/**"
+            - "mkdocs.yml"
+            - "README.md"
+            - "pyproject.toml"
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+jobs:
+    build-deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+            - name: Setup Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.13"
+            - name: Install uv
+              run: pip install uv
+            - name: Sync env (dev deps for mkdocs)
+              run: uv sync --dev
+            - name: Build site
+              run: uv run mkdocs build --strict
+            - name: Deploy to GitHub Pages
+              uses: peaceiris/actions-gh-pages@v4
+              with:
+                  github_token: ${{ secrets.GITHUB_TOKEN }}
+                  publish_dir: ./site

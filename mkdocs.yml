@@ -1,0 +1,97 @@
+site_name: Knowledge Builder
+site_description: Automated AI-driven ETL into a Neo4j knowledge graph
+site_url: https://example.com/knowledge-builder
+repo_url: https://github.com/dzooli/knowledge-builder
+repo_name: dzooli/knowledge-builder
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - content.code.copy
+    - content.action.edit
+    - content.tabs.link
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+  language: en
+extra_css:
+  - css/search-boost.css
+
+markdown_extensions:
+  - admonition
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - attr_list
+  - def_list
+  - md_in_html
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search:
+      separator: '[\\s\\-]+'
+      prebuild_index: true
+      lang: en
+      pipeline:
+        - stemmer
+        - stopWordFilter
+      scoring:
+        term_frequency: 2
+        field_boost:
+          title: 5
+          content: 1
+          tags: 3
+  # Removed mermaid2 plugin; using native Mermaid JS via custom fence
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [ importer/src ]
+          options:
+            docstring_style: google
+            show_source: true
+            show_signature: true
+            inherited_members: false
+            merge_init_into_class: true
+  
+nav:
+  - Home: index.md
+  - Architecture:
+    - Orchestrator: agent_orchestrator.md
+    - Scheduler: scheduler.md
+    - README: ../README.md
+  - API Reference:
+    - Config: api/config.md
+    - Models: api/models.md
+    - Utils: api/utils.md
+    - Connectors: api/connectors.md
+    - Processing: api/processing.md
+    - Services: api/services.md
+  - ADRs:
+    - ADR Index: adr/README.md
+    - ADR 0001 Orchestrator Refactor: adr/0001-orchestrator-refactor.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/dzooli/knowledge-builder
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js
+  - js/init-mermaid.js
