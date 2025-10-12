@@ -7,8 +7,8 @@ from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from loguru import logger
 
-from config import Config
-from utils import ToolCallNormalizer
+from ..config import Config
+from ..utils import ToolCallNormalizer
 
 
 class Neo4jMemoryConnector:
@@ -70,7 +70,9 @@ class Neo4jMemoryConnector:
                         schema = args_schema.schema()
                 if isinstance(schema, dict):
                     required = schema.get("required") or []
-                    logger.info(f"[mcp] tool schema name={tool.name} required={required}")
+                    logger.info(
+                        f"[mcp] tool schema name={tool.name} required={required}"
+                    )
             except Exception:
                 logger.debug(f"[mcp] tool schema dump failed for {tool.name}")
 
@@ -94,7 +96,7 @@ class Neo4jMemoryConnector:
     @staticmethod
     def try_async_invoke(tool: BaseTool, params: Dict[str, Any]) -> Any:
         """Try to invoke the tool using the async ainvoke method."""
-        if not hasattr(tool, 'ainvoke'):
+        if not hasattr(tool, "ainvoke"):
             return None
 
         try:
@@ -105,7 +107,7 @@ class Neo4jMemoryConnector:
     @staticmethod
     def try_sync_invoke(tool: BaseTool, params: Dict[str, Any]) -> Any:
         """Try to invoke the tool using the sync invoke method."""
-        if not hasattr(tool, 'invoke'):
+        if not hasattr(tool, "invoke"):
             return None
 
         try:
@@ -118,7 +120,7 @@ class Neo4jMemoryConnector:
     @staticmethod
     def try_legacy_run(tool: BaseTool, params: Dict[str, Any]) -> Any:
         """Try to invoke the tool using the legacy run method."""
-        if not hasattr(tool, 'run'):
+        if not hasattr(tool, "run"):
             return None
 
         try:

@@ -4,7 +4,7 @@ import time
 import schedule
 from loguru import logger
 
-from config import Config
+from ..config import Config
 
 
 class SchedulerCoordinator:
@@ -22,7 +22,9 @@ class SchedulerCoordinator:
 
         acquired = self.run_lock.acquire(blocking=False)
         if not acquired:
-            logger.warning("Previous run still in progress; skipping this schedule tick.")
+            logger.warning(
+                "Previous run still in progress; skipping this schedule tick."
+            )
             return
 
         try:

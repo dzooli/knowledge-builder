@@ -799,7 +799,6 @@ dependencies = [
     { name = "langgraph" },
     { name = "loguru" },
     { name = "mcp-neo4j-memory" },
-    { name = "pdm" },
     { name = "pydantic" },
     { name = "schedule" },
 ]
@@ -822,6 +821,7 @@ dev = [
     { name = "mkdocs-material" },
     { name = "mkdocs-mermaid2-plugin" },
     { name = "mkdocstrings", extra = ["python"] },
+    { name = "pdm" },
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
@@ -842,7 +842,6 @@ requires-dist = [
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5.0" },
     { name = "mkdocs-mermaid2-plugin", marker = "extra == 'docs'", specifier = ">=1.1.0" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.25.0" },
-    { name = "pdm", specifier = ">=2.26.0" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "schedule", specifier = ">=1.2.0" },
 ]
@@ -856,6 +855,7 @@ dev = [
     { name = "mkdocs-material", specifier = ">=9.5.0" },
     { name = "mkdocs-mermaid2-plugin", specifier = ">=1.1.0" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=0.25.0" },
+    { name = "pdm", specifier = ">=2.26.0" },
     { name = "pytest", specifier = ">=8.3.0" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
 ]

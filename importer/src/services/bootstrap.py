@@ -5,8 +5,8 @@ import time
 import httpx
 from loguru import logger
 
-from config import Config
-from connectors import Neo4jMemoryConnector, PaperlessConnector
+from ..config import Config
+from ..connectors import Neo4jMemoryConnector, PaperlessConnector
 
 
 class ServiceBootstrapper:
@@ -49,7 +49,9 @@ class ServiceBootstrapper:
     def resolve_neo4j_host_port(cls) -> tuple[str, int]:
         """Resolve Neo4j host and port from configuration."""
         if Config.NEO4J_URL:
-            if host_port := Neo4jMemoryConnector.neo4j_host_port_from_url(Config.NEO4J_URL):
+            if host_port := Neo4jMemoryConnector.neo4j_host_port_from_url(
+                Config.NEO4J_URL
+            ):
                 return host_port
         return Config.NEO4J_HOST, Config.NEO4J_PORT
 

@@ -5,9 +5,9 @@ from pathlib import Path
 
 from loguru import logger
 
-from config import Config
-from processing import DocumentProcessor
-from services import SchedulerCoordinator
+from .config import Config
+from .processing import DocumentProcessor
+from .services import SchedulerCoordinator
 
 
 def setup_logging():
@@ -27,6 +27,7 @@ def setup_logging():
 
 def setup_signal_handlers(scheduler_coordinator: SchedulerCoordinator):
     """Setup signal handlers for graceful shutdown."""
+
     def handle_signal(signum, frame):
         logger.info(f"Received signal {signum}; requesting shutdown...")
         scheduler_coordinator.request_stop()

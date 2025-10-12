@@ -4,13 +4,13 @@ from pathlib import Path
 from typing import Dict, Any
 
 from loguru import logger
-from config import Config
+from ..config import Config
 
 
 class StateManager:
     """Manages processing state and idempotency checks."""
 
-    def __init__(self, state_path: Path = None):
+    def __init__(self, state_path: Path | None = None):
         self.state_path = state_path or Config.STATE_PATH
         self.state: Dict[str, Any] = {"last_id": 0, "hashes": {}}
         self._load_state()
@@ -32,7 +32,11 @@ class StateManager:
 
     def is_document_changed(self, doc_id: int, text_hash: str) -> bool:
         """Check if document content has changed."""
-        return True if Config.FORCE_REPROCESS else text_hash != self.state.get("hashes", {}).get(str(doc_id), "")
+        return (
+            True
+            if Config.FORCE_REPROCESS
+            else text_hash != self.state.get("hashes", {}).get(str(doc_id), "")
+        )
 
     def update_document_state(self, doc_id: int, text_hash: str):
         """Update state for processed document."""

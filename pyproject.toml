@@ -44,3 +44,11 @@ docs-serve = "mkdocs serve -a localhost:12000"
 docs-build = "mkdocs build"
 docs-deploy-version = "python -m kb_docs_cli deploy_version"
 docs-set-default = "python -m kb_docs_cli set_default"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["importer/tests"]
+addopts = "-ra"
+filterwarnings = [
+    "ignore::DeprecationWarning:langchain.*",
+]

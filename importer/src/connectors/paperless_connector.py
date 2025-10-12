@@ -8,7 +8,7 @@ from typing import Dict, Iterator
 import httpx
 from loguru import logger
 
-from config import Config
+from ..config import Config
 
 
 class PaperlessConnector:
@@ -22,7 +22,9 @@ class PaperlessConnector:
 
         token_path = Config.PAPERLESS_TOKEN_FILE
         if not token_path:
-            raise RuntimeError("Neither PAPERLESS_TOKEN nor PAPERLESS_TOKEN_FILE is specified.")
+            raise RuntimeError(
+                "Neither PAPERLESS_TOKEN nor PAPERLESS_TOKEN_FILE is specified."
+            )
 
         logger.info(f"[bootstrap] Watching token: {token_path}")
         deadline = (time.time() + timeout_seconds) if timeout_seconds > 0 else None
@@ -79,15 +81,21 @@ class PaperlessConnector:
     def write_obsidian_note(document: Dict, chunk_index: int, text: str):
         """Write chunk to Obsidian vault (optional)."""
         try:
-            slug = f"{document['id']}_c{chunk_index+1}"
+            slug = f"{document['id']}_c{chunk_index + 1}"
             meta = {
                 "title": document.get("title") or slug,
                 "created": document.get("created"),
                 "source": document.get("download_url"),
                 "paperless_id": document["id"],
-                "chunk": chunk_index + 1
+                "chunk": chunk_index + 1,
             }
-            body = "---\n" + json.dumps(meta, ensure_ascii=False, indent=2) + "\n---\n\n" + text + "\n"
+            body = (
+                "---\n"
+                + json.dumps(meta, ensure_ascii=False, indent=2)
+                + "\n---\n\n"
+                + text
+                + "\n"
+            )
             (Config.VAULT_DIR / f"{slug}.md").write_text(body, encoding="utf-8")
             logger.info(f"[obsidian] wrote: {slug}.md ({len(text)} chars)")
         except Exception:

@@ -9,9 +9,9 @@ from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import AIMessage, ToolMessage
 from loguru import logger
 
-from config import Config
-from utils import TextUtils, ToolCallExtractor
-from connectors import Neo4jMemoryConnector
+from ..config import Config
+from ..utils import TextUtils, ToolCallExtractor
+from ..connectors import Neo4jMemoryConnector
 
 
 # Prompts

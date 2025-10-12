@@ -3,13 +3,13 @@ from typing import Optional
 
 from loguru import logger
 
-from config import Config
-from models import DocumentWork
-from utils import TextUtils
-from connectors import Neo4jMemoryConnector, PaperlessConnector
+from ..config import Config
+from ..models import DocumentWork
+from ..utils import TextUtils
+from ..connectors import Neo4jMemoryConnector, PaperlessConnector
 from .agent_orchestrator import AgentOrchestrator
 from .state_manager import StateManager
-from services import ServiceBootstrapper
+from ..services import ServiceBootstrapper
 
 
 class DocumentProcessor:
@@ -32,7 +32,9 @@ class DocumentProcessor:
         logger.info(f"[doc] consider id={doc_id} force={Config.FORCE_REPROCESS}")
 
         if not self.state_manager.should_process_document(doc_id):
-            logger.info(f"[doc] skip id={doc_id} last_id={self.state_manager.state.get('last_id', 0)}")
+            logger.info(
+                f"[doc] skip id={doc_id} last_id={self.state_manager.state.get('last_id', 0)}"
+            )
             return None
 
         try:
@@ -45,15 +47,19 @@ class DocumentProcessor:
 
         if not text:
             # Try to fall back from metadata
-            fallback = " ".join([
-                str(detailed.get("title") or ""),
-                str(detailed.get("notes") or ""),
-                str(detailed.get("original_filename") or ""),
-                str(detailed.get("created") or ""),
-            ]).strip()
+            fallback = " ".join(
+                [
+                    str(detailed.get("title") or ""),
+                    str(detailed.get("notes") or ""),
+                    str(detailed.get("original_filename") or ""),
+                    str(detailed.get("created") or ""),
+                ]
+            ).strip()
 
             if fallback:
-                logger.info(f"[doc] empty OCR content; using metadata fallback id={doc_id}")
+                logger.info(
+                    f"[doc] empty OCR content; using metadata fallback id={doc_id}"
+                )
             text = fallback
 
         if not text:
@@ -69,10 +75,18 @@ class DocumentProcessor:
             return None
 
         chunks = TextUtils.chunk_text(text)
-        logger.info(f"[doc] prepared id={doc_id} chunks={len(chunks)} first_len={len(chunks[0]) if chunks else 0}")
+        logger.info(
+            f"[doc] prepared id={doc_id} chunks={len(chunks)} first_len={len(chunks[0]) if chunks else 0}"
+        )
 
         source_url = str(detailed.get("download_url") or "")
-        return DocumentWork(doc_id=doc_id, source_url=source_url, chunks=chunks, text_hash=text_hash, doc=detailed)
+        return DocumentWork(
+            doc_id=doc_id,
+            source_url=source_url,
+            chunks=chunks,
+            text_hash=text_hash,
+            doc=detailed,
+        )
 
     def run_downstream_steps(self, work: DocumentWork):
         """Execute downstream processing steps for document work."""
@@ -84,32 +98,51 @@ class DocumentProcessor:
 
         for chunk_index, chunk_text in enumerate(work.chunks):
             source_id = str(work.doc_id)
-            chunk_id = f"c{chunk_index+1}"
+            chunk_id = f"c{chunk_index + 1}"
 
-            logger.info(f"[doc] processing chunk {chunk_index+1}/{total_chunks} for doc_id={work.doc_id}")
+            logger.info(
+                f"[doc] processing chunk {chunk_index + 1}/{total_chunks} for doc_id={work.doc_id}"
+            )
 
             try:
-                self.agent_orchestrator.process_chunk(source_id, chunk_id, work.source_url, chunk_text)
+                self.agent_orchestrator.process_chunk(
+                    source_id, chunk_id, work.source_url, chunk_text
+                )
                 successful_chunks += 1
-                logger.info(f"[doc] chunk {chunk_index+1}/{total_chunks} completed successfully for doc_id={work.doc_id}")
+                logger.info(
+                    f"[doc] chunk {chunk_index + 1}/{total_chunks} completed successfully for doc_id={work.doc_id}"
+                )
             except Exception as exc:
                 failed_chunks += 1
-                logger.error(f"[doc] chunk {chunk_index+1}/{total_chunks} failed for doc_id={work.doc_id}: {exc}", exc_info=True)
+                logger.error(
+                    f"[doc] chunk {chunk_index + 1}/{total_chunks} failed for doc_id={work.doc_id}: {exc}",
+                    exc_info=True,
+                )
                 # Continue processing other chunks even if one fails
 
             # Optional Obsidian export
             if Config.OBSIDIAN_EXPORT:
                 try:
-                    self.paperless_connector.write_obsidian_note(work.doc, chunk_index, chunk_text)
-                    logger.debug(f"[doc] obsidian export completed for chunk {chunk_index+1} of doc_id={work.doc_id}")
+                    self.paperless_connector.write_obsidian_note(
+                        work.doc, chunk_index, chunk_text
+                    )
+                    logger.debug(
+                        f"[doc] obsidian export completed for chunk {chunk_index + 1} of doc_id={work.doc_id}"
+                    )
                 except Exception as exc:
-                    logger.warning(f"[doc] obsidian export failed for chunk {chunk_index+1} of doc_id={work.doc_id}: {exc}")
+                    logger.warning(
+                        f"[doc] obsidian export failed for chunk {chunk_index + 1} of doc_id={work.doc_id}: {exc}"
+                    )
 
         # Summary logging
-        logger.info(f"[doc] chunk processing completed for doc_id={work.doc_id}: {successful_chunks}/{total_chunks} successful, {failed_chunks} failed")
+        logger.info(
+            f"[doc] chunk processing completed for doc_id={work.doc_id}: {successful_chunks}/{total_chunks} successful, {failed_chunks} failed"
+        )
 
         if failed_chunks > 0:
-            logger.warning(f"[doc] {failed_chunks} chunks failed processing for doc_id={work.doc_id} - some observations may be missing")
+            logger.warning(
+                f"[doc] {failed_chunks} chunks failed processing for doc_id={work.doc_id} - some observations may be missing"
+            )
 
     def finalize_document(self, work: DocumentWork):
         """Finalize document processing and update state."""

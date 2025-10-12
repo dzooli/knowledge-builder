@@ -1,7 +1,7 @@
 import json
 import re
-from typing import Any, List
-from config import Config
+from typing import Any, List, Optional
+from ..config import Config
 
 
 class TextUtils:
@@ -27,8 +27,12 @@ class TextUtils:
         return f"{s[:limit]}... [truncated {tail} chars]"
 
     @staticmethod
-    def chunk_text(text: str, max_chars: int = None) -> List[str]:
+    def chunk_text(text: str, max_chars: Optional[int] = None) -> List[str]:
         """Split text into chunks of a specified size."""
         if max_chars is None:
             max_chars = Config.CHUNK_SIZE
-        return [text[i:i + max_chars] for i in range(0, len(text), max_chars)] if text else [""]
+        return (
+            [text[i : i + max_chars] for i in range(0, len(text), max_chars)]
+            if text
+            else [""]
+        )
