@@ -319,7 +319,51 @@ Every chunk produces a deterministic Evidence node, with progressive enrichment 
 * **Clear Dependencies**: Import relationships are explicit and hierarchical
 * **Consistent Structure**: Follows Python packaging best practices
 
-## 🔍 Testing & Dev Aids
+## 🗺️ Module Map
+
+This table summarizes the core Python modules and their responsibilities for quick orientation. See `docs/agent_orchestrator.md` for deeper details on the staged ingestion pipeline.
+
+<!-- MODULE_MAP_START -->
+| Area | Path / Module | Responsibility |
+|------|---------------|----------------|
+| Entry | `importer/src/main.py` | Main module |
+| Configuration | `importer/src/config.py` | Config module |
+| Data Models | `importer/src/models.py` | Models module |
+| Connectors | `importer/src/connectors/__init__.py` | Connector modules for external service integrations. |
+| Connectors | `importer/src/connectors/neo4j_connector.py` | Neo4j connector module |
+| Connectors | `importer/src/connectors/paperless_connector.py` | Paperless connector module |
+| Processing | `importer/src/processing/__init__.py` | Processing modules for document processing, agent orchestration, and state management. |
+| Processing | `importer/src/processing/agent_execution.py` | Execution and message-processing helpers for AgentOrchestrator. |
+| Processing | `importer/src/processing/agent_orchestrator.py` | Agent orchestrator module |
+| Processing | `importer/src/processing/agent_prompts.py` | Prompt templates for the agent orchestrator. |
+| Processing | `importer/src/processing/document_processor.py` | Document processor module |
+| Processing | `importer/src/processing/fallback_strategies.py` | Fallback and heuristic strategies extracted from agent_orchestrator. |
+| Processing | `importer/src/processing/state_manager.py` | State manager module |
+| Services | `importer/src/services/__init__.py` | Services modules for bootstrap and scheduling coordination. |
+| Services | `importer/src/services/bootstrap.py` | Bootstrap module |
+| Services | `importer/src/services/scheduler.py` | Scheduler module |
+| Utilities | `importer/src/__init__.py` | Primary source package for the knowledge-builder importer. |
+| Utilities | `importer/src/utils/__init__.py` | Utility modules for text processing and tool handling. |
+| Utilities | `importer/src/utils/json_parser.py` | Json parser module |
+| Utilities | `importer/src/utils/json_utils.py` | High-performance JSON and text extraction utilities using orjson. |
+| Utilities | `importer/src/utils/text_utils.py` | Text utils module |
+| Utilities | `importer/src/utils/tool_call_extractor.py` | Tool call extractor module |
+| Utilities | `importer/src/utils/tool_call_normalizer.py` | Tool call normalizer module |
+<!-- MODULE_MAP_END -->
+
+Design Principles applied:
+* Single Responsibility: Each module focuses on one concern.
+* Open/Closed: New stages or heuristics extend via new modules or small helpers without modifying stable cores.
+* Low Coupling: Cross-module interaction goes through clear method contracts.
+* Testability: Fine-grained modules enable targeted unit/runtime tests.
+
+To regenerate this table automatically after adding/removing modules:
+
+```bash
+uv run python scripts/generate_module_map.py --write
+```
+
+## �🔍 Testing & Dev Aids
 
 * Tail importer logs:
 
@@ -366,6 +410,37 @@ GitHub Pages deployment runs on pushes to `master` touching docs or config ( `.g
 * Orchestrator staged pipeline design & fallback diagrams
 * Scheduler sequence diagram
 * ADR 0001 detailing the refactor rationale
+
+## 🟩 VS Code Coverage Gutters
+
+Coverage is generated automatically when running tests via `pytest` (configured in `pyproject.toml` ). Outputs:
+
+* `coverage.xml` (Cobertura XML)
+* `coverage.lcov` (LCOV format)
+
+These are compatible with the VS Code Coverage Gutters extension. After installing that extension:
+
+1. Run tests (they already produce coverage):
+  
+
+```bash
+  uv run pytest
+  ```
+
+2. In VS Code, trigger Coverage Gutters: "Coverage Gutters: Display Coverage".
+3. If needed, point the extension settings to `coverage.lcov` or `coverage.xml`.
+
+To force regeneration only, you can also run:
+
+```bash
+uv run pytest -q
+```
+
+Configuration details:
+* Addopts in `[tool.pytest.ini_options]` include `--cov-report=xml:coverage.xml --cov-report=lcov:coverage.lcov`.
+* `.coveragerc` enables branch coverage and omits tests / cache directories.
+
+Adjust thresholds or omit patterns via `.coveragerc` if coverage gating is added later.
 
 Add new ADRs under `docs/adr/` (increment number) and link them in `mkdocs.yml` .
 

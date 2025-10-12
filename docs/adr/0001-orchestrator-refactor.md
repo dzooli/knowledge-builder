@@ -1,59 +1,70 @@
 # ADR 0001: Staged Agent Orchestrator Refactor
 
-Date: 2025-10-11
+Date: 2025-10-11 (updated 2025-10-12)
 Status: Accepted
 
 ## Context
 
-The original `agent_orchestrator.py` contained a large monolithic method with duplicated logic (evidence creation, tool invocation patterns, heuristic fallbacks) that made extension risky and testing difficult. Timeout handling and fallback guarantees were implicit, and logging repeated verbose formatting, reducing clarity.
+The initial orchestrator was a single oversized file containing: agent invocation, JSON/tool call parsing, heuristic fallbacks, evidence creation, and logging patterns. This violated SRP, made unit tests brittle, and obscured fallback guarantees. Type + lint complexity increased as one method accumulated timeout handling, parsing branches, and emergency recovery logic.
 
 ## Decision
 
-Refactor the orchestrator into a 5-stage pipeline with layered fallbacks and supporting helper abstractions:
-1. Primary Agent Run (timeout bound)
-2. Execute Parsed Tool Calls
-3. Heuristic Augmentation
-4. Forced Minimal Write
-5. Finalize
+Adopt a modular, staged pipeline split across dedicated modules:
 
-Introduce helper methods for evidence naming, entity construction, tool invocation, heuristic extraction, linking, and observation insertion. Expose thin public wrappers for testing. Centralize logging and exception handling policies. Guarantee that every chunk produces at least one Evidence node and semantic content.
+1. Primary Agent Run (timeout bound)
+2. Execute Parsed Tool Calls (suggested JSON inside last AI message)
+3. Heuristic Generation (derive tool calls from AI content + raw text)
+4. Forced Minimal Write (guaranteed baseline evidence + entities + observations)
+5. Finalize (evidence linking + relation retry)
+
+Module allocation:
+* `agent_orchestrator.py` – Stage orchestration, evidence utilities, logging, relation retry coordination
+* `agent_execution.py` – Async agent call (`run_agent_async`), timeout wrapper (`run_agent_with_timeout`), message processing, suggested tool ordering/execution
+* `fallback_strategies.py` – Heuristic entity mining, forced minimal write, generated call synthesis
+* `agent_prompts.py` – Prompt template constant
+* `json_utils.py` / `ToolCallExtractor` – Resilient JSON extraction & normalization
+
+Public thin wrappers maintain test stability (evidence naming, tool invocation, heuristic entity collection) while internals can evolve.
 
 ## Alternatives Considered
 
-* Keep monolith + incrementally patch: rejected (complexity & duplication persist)
-* Full DSL for tool planning: overkill for current scale, increases cognitive load
-* Pure heuristic pipeline (no agent): loses semantic richness and adaptive extraction
+* Incremental clean-up inside monolith – Rejected: risk of regression remained high; complexity ceiling not reduced.
+* Introduce a planning DSL – Over-engineered for current scale; added learning curve.
+* Pure heuristic approach (remove LLM) – Loss of adaptive extraction and semantic richness.
 
 ## Consequences
 
 Positive:
-* Lower cognitive complexity (<30 lines per function target maintained)
-* Easier unit & runtime testing (public wrappers)
-* Deterministic fallback behavior, fewer silent failures
-* Clear extension seams (add stage vs. extend helper)
+* Functions stay under targeted length & cognitive complexity thresholds.
+* Clear extension seams (add/modify stage vs. expanding a giant method).
+* Improved test isolation (each helper/module directly testable).
+* Deterministic fallback ladder ensures no silent no-op chunks.
 
-Negative / Trade-offs:
-* Slight overhead of additional function indirections
-* More files/doc sections to maintain
+Trade-offs / Neutral:
+* Slight overhead from additional module boundaries.
+* Documentation must track multiple files (mitigated via this ADR + updated design doc).
 
-## Implementation Notes
+## Implementation Notes (Updated)
 
-* `_run_with_timeout` replaces earlier sync wrapper
-* `_invoke_tool` centralizes success detection & logging
-* Heuristic extraction limited to proper-case tokens to remain lightweight
-* Fallback ladder documented in diagram; early sufficiency check prevents redundant writes
+* `_run_with_timeout` inside orchestrator is now a thin backward-compatibility shim; canonical timeout logic lives in `agent_execution.run_agent_with_timeout`.
+* Helper `_collect_capitalized_entities` removed; replaced by `fallback_strategies.collect_capitalized_entities` (exported for reuse/tests).
+* Legacy ad-hoc JSON parsing superseded by consolidated `ToolCallExtractor` using `json_utils` (orjson-based) for speed + resilience.
+* Tool execution ordering relocated to `agent_execution.order_tool_calls` to preserve expected sequence (observations → entities → other → relations).
+* Relation retry dedup logic extracted via `_normalize_relation_for_retry` + `_relation_key` helpers.
 
 ## Metrics / Validation
 
-* Tests cover helpers, timeout path, and forced fallback
-* Manual log inspection shows truncated raw LLM output and uniform tool logs
+* Unit tests cover timeout wrapper presence (monkeypatch compatibility) and heuristic fallbacks.
+* Manual and test logs confirm: stage banners, truncated AI output, clear origin prefixes ("generated", "forced").
+* Line count reduction in orchestrator keeps it below monolith guard threshold (guard script external, not part of ADR scope).
 
 ## Future Work
 
-* Adaptive timeout per chunk size & historical complexity
-* Metric emission for stage durations & fallback frequency
-* Re-enrichment background job for minimal Evidence nodes
+* Adaptive timeout heuristics (chunk length, historical agent latency).
+* Metrics export (Prometheus) for stage durations, fallback frequency, retry counts.
+* Re-enrichment job to revisit minimal chunks with improved models.
+* Cross-chunk entity consolidation / alias resolution pipeline.
 
 ## Status
 
-Implemented and documented (see `docs/agent_orchestrator.md` ).
+Implemented and documented (see updated `docs/agent_orchestrator.md` ).

@@ -8,12 +8,14 @@ dependencies = [
     "langchain-community>=0.3.27",
     "langchain-mcp-adapters>=0.1.9",
     "langchain-ollama>=0.2.0",
-    "langgraph>=0.2.0",
+    # Upgraded to ensure compatibility with langchain-core >=0.3.x
+    "langgraph>=0.2.40,<0.3",
     "mcp-neo4j-memory>=0.3.0",
     "pydantic>=2.11.7",
     "httpx>=0.28.1",
     "schedule>=1.2.0",
     "loguru>=0.7.0",
+    "orjson>=3.10.7",
 ]
 
 [project.optional-dependencies]
@@ -37,18 +39,21 @@ dev-dependencies = [
     "mike>=2.1.0",
     "griffe>=0.48.0",
     "pdm>=2.26.0",    
+    "pre-commit>=3.8.0",
 ]
 
 [tool.pdm.scripts]
 docs-serve = "mkdocs serve -a localhost:12000"
 docs-build = "mkdocs build"
-docs-deploy-version = "python -m kb_docs_cli deploy_version"
 docs-set-default = "python -m kb_docs_cli set_default"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["importer/tests"]
-addopts = "-ra"
+addopts = "-ra --cov=importer/src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-report=lcov:coverage.lcov"
 filterwarnings = [
     "ignore::DeprecationWarning:langchain.*",
 ]
+
+[tool.setuptools]
+packages = ["importer"]

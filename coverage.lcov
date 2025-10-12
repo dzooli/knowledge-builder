@@ -1,0 +1,2426 @@
+SF:importer\src\__init__.py
+DA:8,1
+LF:1
+LH:1
+end_of_record
+SF:importer\src\config.py
+DA:1,1
+DA:2,1
+DA:3,1
+DA:6,1
+DA:10,1
+DA:11,1
+DA:12,1
+DA:15,1
+DA:16,1
+DA:19,1
+DA:20,1
+DA:21,1
+DA:22,1
+DA:23,1
+DA:24,1
+DA:27,1
+DA:28,1
+DA:29,1
+DA:32,1
+DA:33,1
+DA:36,1
+DA:37,1
+DA:38,1
+DA:41,1
+DA:42,1
+DA:43,1
+DA:44,1
+DA:47,1
+DA:49,1
+DA:50,1
+DA:52,1
+DA:56,1
+LF:32
+LH:32
+FN:50,52,Config.initialize_directories
+FNDA:1,Config.initialize_directories
+FNF:1
+FNH:1
+end_of_record
+SF:importer\src\connectors\__init__.py
+DA:3,1
+DA:4,1
+DA:6,1
+LF:3
+LH:3
+end_of_record
+SF:importer\src\connectors\neo4j_connector.py
+DA:1,1
+DA:2,1
+DA:3,1
+DA:4,1
+DA:6,1
+DA:7,1
+DA:8,1
+DA:10,1
+DA:11,1
+DA:14,1
+DA:17,1
+DA:18,0
+DA:19,0
+DA:21,1
+DA:22,1
+DA:24,0
+DA:25,0
+DA:26,0
+DA:27,0
+DA:28,0
+DA:30,1
+DA:31,1
+DA:33,0
+DA:34,0
+DA:35,0
+DA:37,0
+DA:38,0
+DA:39,0
+DA:40,0
+DA:41,0
+DA:42,0
+DA:44,0
+DA:45,0
+DA:53,1
+DA:54,1
+DA:56,0
+DA:57,0
+DA:58,0
+DA:59,0
+DA:62,0
+DA:63,0
+DA:64,0
+DA:65,0
+DA:66,0
+DA:67,0
+DA:68,0
+DA:69,0
+DA:70,0
+DA:71,0
+DA:72,0
+DA:73,0
+DA:76,0
+DA:77,0
+DA:79,0
+DA:81,1
+DA:83,0
+DA:84,0
+DA:85,0
+DA:86,0
+DA:88,1
+DA:90,0
+DA:91,0
+DA:92,0
+DA:93,0
+DA:94,0
+DA:96,1
+DA:97,1
+DA:99,0
+DA:100,0
+DA:102,0
+DA:103,0
+DA:104,0
+DA:105,0
+DA:107,1
+DA:108,1
+DA:110,0
+DA:111,0
+DA:113,0
+DA:114,0
+DA:115,0
+DA:116,0
+DA:117,0
+DA:118,0
+DA:120,1
+DA:121,1
+DA:123,0
+DA:124,0
+DA:126,0
+DA:127,0
+DA:128,0
+DA:129,0
+DA:131,1
+DA:132,1
+DA:134,0
+DA:135,0
+DA:137,0
+DA:138,0
+DA:139,0
+DA:140,0
+DA:142,1
+DA:143,1
+DA:145,0
+DA:146,0
+DA:147,0
+DA:149,0
+DA:150,0
+DA:151,0
+DA:153,0
+DA:154,0
+DA:156,1
+DA:158,0
+DA:159,0
+DA:160,0
+DA:162,0
+DA:163,0
+DA:164,0
+LF:116
+LH:30
+FN:17,19,Neo4jMemoryConnector.__init__
+FNDA:0,Neo4jMemoryConnector.__init__
+FN:22,28,Neo4jMemoryConnector.neo4j_host_port_from_url
+FNDA:0,Neo4jMemoryConnector.neo4j_host_port_from_url
+FN:31,51,Neo4jMemoryConnector.build_stdio_server_config
+FNDA:0,Neo4jMemoryConnector.build_stdio_server_config
+FN:54,79,Neo4jMemoryConnector.load_mcp_tools
+FNDA:0,Neo4jMemoryConnector.load_mcp_tools
+FN:81,86,Neo4jMemoryConnector.ensure_mcp_tools
+FNDA:0,Neo4jMemoryConnector.ensure_mcp_tools
+FN:88,94,Neo4jMemoryConnector.get_tools_by_name_sync
+FNDA:0,Neo4jMemoryConnector.get_tools_by_name_sync
+FN:97,105,Neo4jMemoryConnector.try_async_invoke
+FNDA:0,Neo4jMemoryConnector.try_async_invoke
+FN:108,118,Neo4jMemoryConnector.try_sync_invoke
+FNDA:0,Neo4jMemoryConnector.try_sync_invoke
+FN:121,129,Neo4jMemoryConnector.try_legacy_run
+FNDA:0,Neo4jMemoryConnector.try_legacy_run
+FN:132,140,Neo4jMemoryConnector.try_callable_fallback
+FNDA:0,Neo4jMemoryConnector.try_callable_fallback
+FN:143,154,Neo4jMemoryConnector.try_tool_invocation_methods
+FNDA:0,Neo4jMemoryConnector.try_tool_invocation_methods
+FN:156,164,Neo4jMemoryConnector.invoke_tool_by_name
+FNDA:0,Neo4jMemoryConnector.invoke_tool_by_name
+FNF:12
+FNH:0
+BRDA:26,0,jump to line 27,-
+BRDA:26,0,jump to line 28,-
+BRDA:37,0,jump to line 38,-
+BRDA:37,0,jump to line 39,-
+BRDA:39,0,jump to line 40,-
+BRDA:39,0,jump to line 41,-
+BRDA:41,0,jump to line 42,-
+BRDA:41,0,jump to line 44,-
+BRDA:62,0,jump to line 63,-
+BRDA:62,0,jump to line 79,-
+BRDA:66,0,jump to line 67,-
+BRDA:66,0,jump to line 71,-
+BRDA:67,0,jump to line 68,-
+BRDA:67,0,jump to line 69,-
+BRDA:69,0,jump to line 70,-
+BRDA:69,0,jump to line 71,-
+BRDA:71,0,jump to line 62,-
+BRDA:71,0,jump to line 72,-
+BRDA:83,0,jump to line 84,-
+BRDA:83,0,jump to line 86,-
+BRDA:99,0,jump to line 100,-
+BRDA:99,0,jump to line 102,-
+BRDA:110,0,jump to line 111,-
+BRDA:110,0,jump to line 113,-
+BRDA:116,0,jump to line 117,-
+BRDA:116,0,jump to line 118,-
+BRDA:123,0,jump to line 124,-
+BRDA:123,0,jump to line 126,-
+BRDA:134,0,jump to line 135,-
+BRDA:134,0,jump to line 137,-
+BRDA:146,0,jump to line 147,-
+BRDA:146,0,jump to line 149,-
+BRDA:150,0,jump to line 151,-
+BRDA:150,0,jump to line 153,-
+BRDA:159,0,jump to line 160,-
+BRDA:159,0,jump to line 162,-
+BRF:36
+BRH:0
+end_of_record
+SF:importer\src\connectors\paperless_connector.py
+DA:1,1
+DA:2,1
+DA:3,1
+DA:4,1
+DA:5,1
+DA:6,1
+DA:8,1
+DA:9,1
+DA:11,1
+DA:14,1
+DA:17,1
+DA:18,1
+DA:20,0
+DA:21,0
+DA:23,0
+DA:24,0
+DA:25,0
+DA:29,0
+DA:30,0
+DA:32,0
+DA:33,0
+DA:34,0
+DA:35,0
+DA:36,0
+DA:37,0
+DA:38,0
+DA:40,0
+DA:41,0
+DA:42,0
+DA:44,1
+DA:45,1
+DA:47,0
+DA:48,0
+DA:50,1
+DA:51,1
+DA:53,0
+DA:54,0
+DA:56,0
+DA:57,0
+DA:58,0
+DA:59,0
+DA:60,0
+DA:61,0
+DA:62,0
+DA:64,1
+DA:65,1
+DA:67,0
+DA:68,0
+DA:70,0
+DA:71,0
+DA:72,0
+DA:73,0
+DA:75,1
+DA:76,1
+DA:78,0
+DA:80,1
+DA:81,1
+DA:83,0
+DA:84,0
+DA:85,0
+DA:92,0
+DA:99,0
+DA:100,0
+DA:101,0
+DA:102,0
+LF:65
+LH:22
+FN:18,42,PaperlessConnector.wait_for_token
+FNDA:0,PaperlessConnector.wait_for_token
+FN:45,48,PaperlessConnector.get_headers
+FNDA:0,PaperlessConnector.get_headers
+FN:51,62,PaperlessConnector.iter_documents
+FNDA:0,PaperlessConnector.iter_documents
+FN:65,73,PaperlessConnector.get_document
+FNDA:0,PaperlessConnector.get_document
+FN:76,78,PaperlessConnector.extract_text
+FNDA:0,PaperlessConnector.extract_text
+FN:81,102,PaperlessConnector.write_obsidian_note
+FNDA:0,PaperlessConnector.write_obsidian_note
+FNF:6
+FNH:0
+BRDA:20,0,jump to line 21,-
+BRDA:20,0,jump to line 23,-
+BRDA:24,0,jump to line 25,-
+BRDA:24,0,jump to line 29,-
+BRDA:34,0,jump to line 35,-
+BRDA:34,0,jump to line 40,-
+BRDA:36,0,jump to line 37,-
+BRDA:36,0,jump to line 40,-
+BRDA:40,0,jump to line 41,-
+BRDA:40,0,jump to line 42,-
+BRDA:56,0,jump to line 57,-
+BRDA:56,0,return from function 'iter_documents',-
+BRF:12
+BRH:0
+end_of_record
+SF:importer\src\main.py
+DA:1,0
+DA:2,0
+DA:3,0
+DA:4,0
+DA:6,0
+DA:8,0
+DA:9,0
+DA:10,0
+DA:13,0
+DA:15,0
+DA:16,0
+DA:18,0
+DA:28,0
+DA:31,0
+DA:32,0
+DA:33,0
+DA:35,0
+DA:36,0
+DA:37,0
+DA:40,0
+DA:42,0
+DA:45,0
+DA:46,0
+DA:49,0
+DA:51,0
+DA:53,0
+DA:54,0
+DA:55,0
+DA:56,0
+DA:57,0
+DA:58,0
+DA:59,0
+DA:60,0
+DA:62,0
+LF:34
+LH:0
+FN:13,25,setup_logging
+FNDA:0,setup_logging
+FN:28,37,setup_signal_handlers
+FNDA:0,setup_signal_handlers
+FN:31,33,setup_signal_handlers.handle_signal
+FNDA:0,setup_signal_handlers.handle_signal
+FN:40,62,main
+FNDA:0,main
+FNF:4
+FNH:0
+BRDA:35,0,jump to line 36,-
+BRDA:35,0,return from function 'setup_signal_handlers',-
+BRDA:36,0,jump to line 35,-
+BRDA:36,0,jump to line 37,-
+BRF:4
+BRH:0
+end_of_record
+SF:importer\src\models.py
+DA:1,1
+DA:2,1
+DA:5,1
+DA:8,1
+DA:10,1
+DA:11,1
+DA:12,1
+DA:13,1
+DA:14,1
+LF:9
+LH:9
+end_of_record
+SF:importer\src\processing\__init__.py
+DA:3,1
+DA:4,1
+DA:5,1
+DA:7,1
+LF:4
+LH:4
+end_of_record
+SF:importer\src\processing\agent_execution.py
+DA:8,1
+DA:10,1
+DA:11,1
+DA:12,1
+DA:13,1
+DA:14,1
+DA:15,1
+DA:17,1
+DA:18,1
+DA:19,1
+DA:20,1
+DA:21,1
+DA:23,1
+DA:24,1
+DA:26,1
+DA:38,1
+DA:39,1
+DA:41,1
+DA:44,1
+DA:48,1
+DA:51,1
+DA:54,1
+DA:57,1
+DA:58,1
+DA:63,1
+DA:66,0
+DA:67,0
+DA:68,0
+DA:73,0
+DA:74,0
+DA:77,0
+DA:78,0
+DA:79,0
+DA:80,0
+DA:81,0
+DA:84,0
+DA:85,0
+DA:89,0
+DA:90,0
+DA:91,0
+DA:92,0
+DA:93,0
+DA:94,0
+DA:95,0
+DA:96,0
+DA:97,0
+DA:98,0
+DA:99,0
+DA:100,0
+DA:101,0
+DA:102,0
+DA:106,0
+DA:107,0
+DA:110,1
+DA:113,0
+DA:114,0
+DA:115,0
+DA:118,0
+DA:119,0
+DA:120,0
+DA:121,0
+DA:122,0
+DA:123,0
+DA:124,0
+DA:125,0
+DA:126,0
+DA:127,0
+DA:128,0
+DA:130,0
+DA:131,0
+DA:132,0
+DA:133,0
+DA:134,0
+DA:135,0
+DA:136,0
+DA:137,0
+DA:138,0
+DA:140,0
+DA:141,0
+DA:142,0
+DA:143,0
+DA:144,0
+DA:150,1
+DA:151,0
+DA:152,0
+DA:153,0
+DA:154,0
+DA:155,0
+DA:156,0
+DA:159,1
+DA:162,0
+DA:165,0
+DA:166,0
+DA:174,0
+DA:179,0
+DA:180,0
+DA:181,0
+DA:182,0
+DA:183,0
+DA:184,0
+DA:185,0
+DA:192,0
+DA:193,0
+DA:200,0
+DA:201,0
+DA:204,0
+DA:207,1
+DA:210,0
+DA:211,0
+DA:212,0
+DA:213,0
+DA:214,0
+DA:215,0
+DA:216,0
+DA:217,0
+DA:218,0
+DA:219,0
+DA:220,0
+DA:223,0
+DA:224,0
+DA:225,0
+DA:226,0
+DA:227,0
+DA:228,0
+DA:229,0
+DA:230,0
+DA:231,0
+DA:232,0
+DA:235,0
+DA:238,1
+DA:241,0
+DA:242,0
+DA:243,0
+DA:244,0
+DA:245,0
+DA:246,0
+DA:247,0
+DA:248,0
+DA:249,0
+DA:250,0
+DA:251,0
+DA:252,0
+DA:255,1
+DA:256,0
+DA:257,0
+DA:258,0
+DA:259,0
+DA:265,0
+DA:268,1
+DA:271,0
+DA:272,0
+DA:273,0
+DA:274,0
+DA:275,0
+DA:278,1
+DA:281,0
+DA:284,0
+DA:285,0
+DA:286,0
+DA:287,0
+DA:290,1
+DA:293,0
+DA:294,0
+DA:295,0
+DA:296,0
+DA:297,0
+DA:298,0
+DA:299,0
+DA:300,0
+DA:301,0
+DA:302,0
+DA:303,0
+DA:311,0
+DA:312,0
+DA:313,0
+DA:314,0
+DA:315,0
+DA:316,0
+DA:319,0
+DA:320,0
+DA:321,0
+DA:324,0
+DA:327,0
+DA:328,0
+LF:184
+LH:34
+FN:41,43,OrchestratorProto.execute_tool_calls
+FNDA:0,OrchestratorProto.execute_tool_calls
+FN:44,46,OrchestratorProto.extract_relations_from_calls
+FNDA:0,OrchestratorProto.extract_relations_from_calls
+FN:48,50,OrchestratorProto.invoke_tool_safe
+FNDA:0,OrchestratorProto.invoke_tool_safe
+FN:51,53,OrchestratorProto.collect_capitalized_entities
+FNDA:0,OrchestratorProto.collect_capitalized_entities
+FN:54,56,OrchestratorProto.add_context_observation
+FNDA:0,OrchestratorProto.add_context_observation
+FN:57,57,OrchestratorProto.make_evidence_name
+FNDA:1,OrchestratorProto.make_evidence_name
+FN:58,60,OrchestratorProto.build_evidence_entity
+FNDA:0,OrchestratorProto.build_evidence_entity
+FN:63,107,run_agent_async
+FNDA:0,run_agent_async
+FN:110,147,run_agent_with_timeout
+FNDA:0,run_agent_with_timeout
+FN:113,128,run_agent_with_timeout._runner
+FNDA:0,run_agent_with_timeout._runner
+FN:150,156,_parse_message_data
+FNDA:0,_parse_message_data
+FN:159,204,_handle_tool_message
+FNDA:0,_handle_tool_message
+FN:207,235,process_messages
+FNDA:0,process_messages
+FN:238,252,execute_suggested_calls_from_last_ai
+FNDA:0,execute_suggested_calls_from_last_ai
+FN:255,265,order_tool_calls
+FNDA:0,order_tool_calls
+FN:268,275,iter_valid_calls
+FNDA:0,iter_valid_calls
+FN:278,287,invoke_and_collect
+FNDA:0,invoke_and_collect
+FN:290,328,retry_relations
+FNDA:0,retry_relations
+FNF:18
+FNH:1
+BRDA:41,0,jump to line 44,1
+BRDA:41,0,return from function 'execute_tool_calls',0
+BRDA:44,0,jump to line 48,1
+BRDA:44,0,return from function 'extract_relations_from_calls',0
+BRDA:48,0,jump to line 51,1
+BRDA:48,0,return from function 'invoke_tool_safe',0
+BRDA:51,0,jump to line 54,1
+BRDA:51,0,return from function 'collect_capitalized_entities',0
+BRDA:54,0,jump to line 57,1
+BRDA:54,0,return from function 'add_context_observation',0
+BRDA:57,0,jump to line 58,1
+BRDA:57,0,return from function 'make_evidence_name',0
+BRDA:58,0,return from function 'build_evidence_entity',0
+BRDA:58,0,exit class 'OrchestratorProto',1
+BRDA:73,0,jump to line 74,-
+BRDA:73,0,jump to line 78,-
+BRDA:95,0,jump to line 96,-
+BRDA:95,0,jump to line 106,-
+BRDA:98,0,jump to line 99,-
+BRDA:98,0,jump to line 107,-
+BRDA:151,0,jump to line 152,-
+BRDA:151,0,jump to line 156,-
+BRDA:166,0,jump to line 174,-
+BRDA:166,0,jump to line 181,-
+BRDA:179,0,jump to line 180,-
+BRDA:179,0,jump to line 181,-
+BRDA:184,0,jump to line 185,-
+BRDA:184,0,jump to line 192,-
+BRDA:192,0,jump to line 193,-
+BRDA:192,0,jump to line 200,-
+BRDA:200,0,jump to line 201,-
+BRDA:200,0,jump to line 204,-
+BRDA:214,0,jump to line 215,-
+BRDA:214,0,jump to line 231,-
+BRDA:216,0,jump to line 217,-
+BRDA:216,0,jump to line 223,-
+BRDA:217,0,jump to line 214,-
+BRDA:217,0,jump to line 218,-
+BRDA:219,0,jump to line 214,-
+BRDA:219,0,jump to line 220,-
+BRDA:223,0,jump to line 214,-
+BRDA:223,0,jump to line 224,-
+BRDA:231,0,jump to line 232,-
+BRDA:231,0,jump to line 235,-
+BRDA:241,0,jump to line 242,-
+BRDA:241,0,jump to line 243,-
+BRDA:249,0,jump to line 250,-
+BRDA:249,0,jump to line 251,-
+BRDA:271,0,jump to line 272,-
+BRDA:271,0,return from function 'iter_valid_calls',-
+BRDA:274,0,jump to line 271,-
+BRDA:274,0,jump to line 275,-
+BRDA:285,0,jump to line 286,-
+BRDA:285,0,jump to line 287,-
+BRDA:293,0,jump to line 294,-
+BRDA:293,0,jump to line 295,-
+BRDA:297,0,jump to line 298,-
+BRDA:297,0,jump to line 319,-
+BRDA:298,0,jump to line 299,-
+BRDA:298,0,jump to line 300,-
+BRDA:303,0,jump to line 311,-
+BRDA:303,0,jump to line 312,-
+BRDA:313,0,jump to line 314,-
+BRDA:313,0,jump to line 315,-
+BRDA:319,0,jump to line 320,-
+BRDA:319,0,return from function 'retry_relations',-
+BRF:66
+BRH:7
+end_of_record
+SF:importer\src\processing\agent_orchestrator.py
+DA:1,1
+DA:2,1
+DA:3,1
+DA:5,1
+DA:6,1
+DA:8,1
+DA:9,1
+DA:10,1
+DA:11,1
+DA:12,1
+DA:17,1
+DA:28,1
+DA:31,1
+DA:32,0
+DA:37,1
+DA:38,1
+DA:39,0
+DA:41,1
+DA:42,1
+DA:45,0
+DA:55,1
+DA:56,1
+DA:57,0
+DA:59,1
+DA:63,0
+DA:64,0
+DA:67,0
+DA:68,0
+DA:71,0
+DA:72,0
+DA:73,0
+DA:74,0
+DA:75,0
+DA:76,0
+DA:77,0
+DA:78,0
+DA:80,1
+DA:81,0
+DA:82,0
+DA:83,0
+DA:88,0
+DA:89,0
+DA:91,1
+DA:92,0
+DA:93,0
+DA:98,0
+DA:103,1
+DA:104,0
+DA:106,1
+DA:109,0
+DA:111,1
+DA:114,0
+DA:116,1
+DA:117,0
+DA:119,1
+DA:122,0
+DA:127,1
+DA:128,1
+DA:129,0
+DA:130,0
+DA:131,0
+DA:132,0
+DA:133,0
+DA:134,0
+DA:135,0
+DA:136,0
+DA:137,0
+DA:138,0
+DA:139,0
+DA:141,1
+DA:142,1
+DA:143,0
+DA:144,0
+DA:145,0
+DA:146,0
+DA:147,0
+DA:148,0
+DA:149,0
+DA:150,0
+DA:151,0
+DA:153,1
+DA:154,1
+DA:155,0
+DA:156,0
+DA:157,0
+DA:158,0
+DA:159,0
+DA:160,0
+DA:161,0
+DA:162,0
+DA:163,0
+DA:164,0
+DA:165,0
+DA:166,0
+DA:167,0
+DA:168,0
+DA:169,0
+DA:170,0
+DA:172,1
+DA:173,1
+DA:174,0
+DA:175,0
+DA:176,0
+DA:177,0
+DA:178,0
+DA:179,0
+DA:180,0
+DA:182,1
+DA:183,1
+DA:184,0
+DA:185,0
+DA:186,0
+DA:187,0
+DA:194,0
+DA:203,1
+DA:207,0
+DA:208,0
+DA:209,0
+DA:210,0
+DA:211,0
+DA:212,0
+DA:213,0
+DA:214,0
+DA:215,0
+DA:216,0
+DA:222,0
+DA:229,0
+DA:230,0
+DA:231,0
+DA:233,1
+DA:234,1
+DA:235,0
+DA:237,1
+DA:238,1
+DA:239,0
+DA:240,0
+DA:241,0
+DA:243,1
+DA:246,0
+DA:251,0
+DA:252,0
+DA:256,1
+DA:258,0
+DA:259,0
+DA:261,0
+DA:262,0
+DA:263,0
+DA:264,0
+DA:265,0
+DA:266,0
+DA:267,0
+DA:268,0
+DA:270,1
+DA:274,0
+DA:275,0
+DA:277,0
+DA:279,0
+DA:280,0
+DA:283,0
+DA:288,0
+DA:289,0
+DA:290,0
+DA:291,0
+DA:293,0
+DA:298,0
+DA:299,0
+DA:303,0
+DA:304,0
+DA:307,0
+DA:310,0
+DA:311,0
+DA:312,0
+DA:313,0
+DA:316,1
+DA:317,1
+DA:318,0
+DA:319,0
+DA:320,0
+DA:322,0
+DA:329,1
+DA:330,1
+DA:332,0
+DA:334,1
+DA:335,1
+DA:336,0
+DA:338,1
+DA:339,1
+DA:342,0
+DA:349,1
+DA:356,0
+DA:357,0
+DA:358,0
+DA:359,0
+DA:361,0
+DA:376,0
+DA:377,0
+DA:378,0
+DA:379,0
+DA:380,0
+DA:381,0
+DA:382,0
+DA:383,0
+DA:385,0
+DA:386,0
+DA:387,0
+DA:389,1
+DA:390,1
+DA:393,0
+DA:394,0
+DA:395,0
+DA:396,0
+DA:397,0
+DA:402,0
+DA:403,0
+DA:404,0
+DA:408,0
+DA:410,1
+DA:411,1
+DA:412,0
+DA:413,0
+DA:414,0
+DA:419,1
+DA:420,1
+DA:421,0
+DA:422,0
+DA:423,0
+DA:424,0
+DA:425,0
+DA:427,1
+DA:430,0
+DA:434,0
+DA:435,0
+DA:443,0
+DA:448,0
+DA:449,0
+DA:451,0
+DA:452,0
+DA:453,0
+DA:455,0
+DA:456,0
+DA:463,0
+DA:464,0
+DA:471,0
+DA:472,0
+DA:476,0
+DA:478,1
+DA:481,0
+DA:482,0
+DA:483,0
+DA:484,0
+DA:486,0
+DA:487,0
+DA:488,0
+DA:489,0
+DA:491,0
+DA:492,0
+DA:493,0
+DA:494,0
+DA:495,0
+DA:496,0
+DA:497,0
+DA:498,0
+DA:499,0
+DA:500,0
+DA:503,0
+DA:504,0
+DA:507,0
+DA:508,0
+DA:509,0
+DA:510,0
+DA:511,0
+DA:512,0
+DA:517,0
+DA:518,0
+DA:519,0
+DA:523,0
+DA:525,1
+DA:528,0
+DA:529,0
+DA:530,0
+DA:531,0
+DA:539,0
+DA:540,0
+DA:541,0
+DA:542,0
+DA:544,0
+DA:545,0
+DA:547,0
+DA:548,0
+DA:550,1
+DA:553,0
+DA:556,1
+DA:559,0
+DA:560,0
+DA:561,0
+DA:562,0
+DA:563,0
+DA:564,0
+DA:565,0
+DA:566,0
+DA:567,0
+DA:568,0
+DA:569,0
+DA:574,0
+DA:576,1
+DA:577,1
+DA:578,0
+DA:580,1
+DA:581,0
+DA:582,0
+DA:583,0
+DA:584,0
+DA:586,0
+DA:587,0
+DA:588,0
+DA:589,0
+DA:590,0
+DA:591,0
+DA:592,0
+DA:593,0
+DA:594,0
+DA:596,0
+DA:597,0
+DA:598,0
+DA:601,0
+DA:604,0
+DA:605,0
+DA:607,1
+DA:616,0
+DA:623,1
+DA:626,0
+DA:627,0
+DA:628,0
+DA:629,0
+DA:630,0
+DA:631,0
+DA:637,0
+DA:639,1
+DA:648,0
+DA:649,0
+DA:650,0
+DA:651,0
+DA:654,0
+DA:655,0
+DA:656,0
+DA:657,0
+DA:658,0
+DA:659,0
+DA:665,0
+DA:667,1
+DA:677,0
+DA:678,0
+DA:679,0
+DA:680,0
+DA:683,0
+DA:684,0
+DA:685,0
+DA:686,0
+DA:692,0
+DA:694,1
+DA:703,0
+DA:704,0
+DA:705,0
+DA:708,0
+DA:711,0
+DA:712,0
+DA:713,0
+DA:714,0
+DA:720,0
+DA:722,1
+DA:731,0
+DA:732,0
+DA:733,0
+DA:739,0
+DA:741,0
+DA:742,0
+DA:743,0
+DA:749,0
+DA:750,0
+DA:754,1
+DA:758,0
+DA:759,0
+DA:760,0
+DA:761,0
+DA:762,0
+DA:763,0
+DA:764,0
+DA:767,0
+DA:770,0
+DA:773,0
+DA:776,0
+DA:779,0
+DA:780,0
+DA:783,0
+DA:784,0
+DA:785,0
+DA:788,0
+DA:789,0
+LF:398
+LH:75
+FN:31,32,AgentOrchestrator.__init__
+FNDA:0,AgentOrchestrator.__init__
+FN:38,39,AgentOrchestrator._make_evidence_name
+FNDA:0,AgentOrchestrator._make_evidence_name
+FN:42,53,AgentOrchestrator._build_evidence_entity
+FNDA:0,AgentOrchestrator._build_evidence_entity
+FN:56,57,AgentOrchestrator._truncate_text_for_obs
+FNDA:0,AgentOrchestrator._truncate_text_for_obs
+FN:59,78,AgentOrchestrator._invoke_tool
+FNDA:0,AgentOrchestrator._invoke_tool
+FN:80,89,AgentOrchestrator._link_entities_to_evidence
+FNDA:0,AgentOrchestrator._link_entities_to_evidence
+FN:91,98,AgentOrchestrator._add_context_observation
+FNDA:0,AgentOrchestrator._add_context_observation
+FN:103,104,AgentOrchestrator.make_evidence_name
+FNDA:0,AgentOrchestrator.make_evidence_name
+FN:106,109,AgentOrchestrator.build_evidence_entity
+FNDA:0,AgentOrchestrator.build_evidence_entity
+FN:111,114,AgentOrchestrator.collect_capitalized_entities
+FNDA:0,AgentOrchestrator.collect_capitalized_entities
+FN:116,117,AgentOrchestrator.invoke_tool_safe
+FNDA:0,AgentOrchestrator.invoke_tool_safe
+FN:119,122,AgentOrchestrator.add_context_observation
+FNDA:0,AgentOrchestrator.add_context_observation
+FN:128,139,AgentOrchestrator._extract_names_from_add_observations
+FNDA:0,AgentOrchestrator._extract_names_from_add_observations
+FN:142,151,AgentOrchestrator._extract_names_from_create_entities
+FNDA:0,AgentOrchestrator._extract_names_from_create_entities
+FN:154,170,AgentOrchestrator._extract_names_from_create_relations
+FNDA:0,AgentOrchestrator._extract_names_from_create_relations
+FN:173,180,AgentOrchestrator._dedupe_preserve_order
+FNDA:0,AgentOrchestrator._dedupe_preserve_order
+FN:183,194,AgentOrchestrator._order_tool_calls
+FNDA:0,AgentOrchestrator._order_tool_calls
+FN:203,231,AgentOrchestrator.extract_relations_from_calls
+FNDA:0,AgentOrchestrator.extract_relations_from_calls
+FN:234,235,AgentOrchestrator._is_valid_call
+FNDA:0,AgentOrchestrator._is_valid_call
+FN:238,241,AgentOrchestrator._is_successful_write
+FNDA:0,AgentOrchestrator._is_successful_write
+FN:243,252,AgentOrchestrator._collect_touched_names
+FNDA:0,AgentOrchestrator._collect_touched_names
+FN:256,268,AgentOrchestrator.execute_tool_calls
+FNDA:0,AgentOrchestrator.execute_tool_calls
+FN:270,313,AgentOrchestrator.ensure_evidence_links
+FNDA:0,AgentOrchestrator.ensure_evidence_links
+FN:317,324,AgentOrchestrator._log_chunk_start_preview
+FNDA:0,AgentOrchestrator._log_chunk_start_preview
+FN:330,332,AgentOrchestrator._log_stage
+FNDA:0,AgentOrchestrator._log_stage
+FN:335,336,AgentOrchestrator._log_stage_warn
+FNDA:0,AgentOrchestrator._log_stage_warn
+FN:339,347,AgentOrchestrator._build_prompt
+FNDA:0,AgentOrchestrator._build_prompt
+FN:349,387,AgentOrchestrator._run_with_timeout
+FNDA:0,AgentOrchestrator._run_with_timeout
+FN:363,374,AgentOrchestrator._run_with_timeout._runner
+FNDA:0,AgentOrchestrator._run_with_timeout._runner
+FN:390,408,AgentOrchestrator._log_last_message_output
+FNDA:0,AgentOrchestrator._log_last_message_output
+FN:411,417,AgentOrchestrator._log_ai_tool_calls
+FNDA:0,AgentOrchestrator._log_ai_tool_calls
+FN:420,425,AgentOrchestrator._parse_message_data
+FNDA:0,AgentOrchestrator._parse_message_data
+FN:427,476,AgentOrchestrator._handle_tool_message
+FNDA:0,AgentOrchestrator._handle_tool_message
+FN:478,523,AgentOrchestrator._process_messages
+FNDA:0,AgentOrchestrator._process_messages
+FN:525,548,AgentOrchestrator._execute_suggested_calls_from_last_ai
+FNDA:0,AgentOrchestrator._execute_suggested_calls_from_last_ai
+FN:550,553,AgentOrchestrator._force_minimal_write
+FNDA:0,AgentOrchestrator._force_minimal_write
+FN:556,574,AgentOrchestrator._normalize_relation_for_retry
+FNDA:0,AgentOrchestrator._normalize_relation_for_retry
+FN:577,578,AgentOrchestrator._relation_key
+FNDA:0,AgentOrchestrator._relation_key
+FN:580,605,AgentOrchestrator._retry_relations
+FNDA:0,AgentOrchestrator._retry_relations
+FN:607,618,AgentOrchestrator._generate_tool_calls_from_content
+FNDA:0,AgentOrchestrator._generate_tool_calls_from_content
+FN:623,637,AgentOrchestrator._stage_primary_prompt
+FNDA:0,AgentOrchestrator._stage_primary_prompt
+FN:639,665,AgentOrchestrator._stage_execute_ai_suggestions
+FNDA:0,AgentOrchestrator._stage_execute_ai_suggestions
+FN:667,692,AgentOrchestrator._stage_generate_calls_from_content
+FNDA:0,AgentOrchestrator._stage_generate_calls_from_content
+FN:694,720,AgentOrchestrator._stage_force_minimal
+FNDA:0,AgentOrchestrator._stage_force_minimal
+FN:722,752,AgentOrchestrator._stage_finalize
+FNDA:0,AgentOrchestrator._stage_finalize
+FN:754,789,AgentOrchestrator.process_chunk
+FNDA:0,AgentOrchestrator.process_chunk
+FNF:46
+FNH:0
+BRDA:81,0,jump to line 82,-
+BRDA:81,0,jump to line 83,-
+BRDA:88,0,jump to line 89,-
+BRDA:88,0,return from function '_link_entities_to_evidence',-
+BRDA:131,0,jump to line 132,-
+BRDA:131,0,jump to line 139,-
+BRDA:132,0,jump to line 133,-
+BRDA:132,0,jump to line 134,-
+BRDA:135,0,jump to line 136,-
+BRDA:135,0,jump to line 137,-
+BRDA:137,0,jump to line 131,-
+BRDA:137,0,jump to line 138,-
+BRDA:145,0,jump to line 146,-
+BRDA:145,0,jump to line 151,-
+BRDA:146,0,jump to line 147,-
+BRDA:146,0,jump to line 148,-
+BRDA:149,0,jump to line 145,-
+BRDA:149,0,jump to line 150,-
+BRDA:157,0,jump to line 158,-
+BRDA:157,0,jump to line 170,-
+BRDA:158,0,jump to line 159,-
+BRDA:158,0,jump to line 160,-
+BRDA:162,0,jump to line 163,-
+BRDA:162,0,jump to line 164,-
+BRDA:164,0,jump to line 165,-
+BRDA:164,0,jump to line 166,-
+BRDA:166,0,jump to line 167,-
+BRDA:166,0,jump to line 168,-
+BRDA:168,0,jump to line 157,-
+BRDA:168,0,jump to line 169,-
+BRDA:176,0,jump to line 177,-
+BRDA:176,0,jump to line 180,-
+BRDA:177,0,jump to line 176,-
+BRDA:177,0,jump to line 178,-
+BRDA:208,0,jump to line 209,-
+BRDA:208,0,jump to line 231,-
+BRDA:210,0,jump to line 211,-
+BRDA:210,0,jump to line 212,-
+BRDA:214,0,jump to line 208,-
+BRDA:214,0,jump to line 215,-
+BRDA:215,0,jump to line 208,-
+BRDA:215,0,jump to line 216,-
+BRDA:216,0,jump to line 215,-
+BRDA:216,0,jump to line 222,-
+BRDA:239,0,jump to line 240,-
+BRDA:239,0,jump to line 241,-
+BRDA:258,0,jump to line 259,-
+BRDA:258,0,jump to line 261,-
+BRDA:264,0,jump to line 265,-
+BRDA:264,0,jump to line 268,-
+BRDA:274,0,jump to line 275,-
+BRDA:274,0,jump to line 277,-
+BRDA:298,0,jump to line 299,-
+BRDA:298,0,return from function 'ensure_evidence_links',-
+BRDA:319,0,jump to line 320,-
+BRDA:319,0,jump to line 322,-
+BRDA:357,0,jump to line 358,-
+BRDA:357,0,jump to line 387,-
+BRDA:393,0,jump to line 394,-
+BRDA:393,0,jump to line 408,-
+BRDA:412,0,jump to line 413,-
+BRDA:412,0,return from function '_log_ai_tool_calls',-
+BRDA:413,0,jump to line 414,-
+BRDA:413,0,return from function '_log_ai_tool_calls',-
+BRDA:421,0,jump to line 422,-
+BRDA:421,0,jump to line 425,-
+BRDA:435,0,jump to line 443,-
+BRDA:435,0,jump to line 451,-
+BRDA:448,0,jump to line 449,-
+BRDA:448,0,jump to line 451,-
+BRDA:455,0,jump to line 456,-
+BRDA:455,0,jump to line 463,-
+BRDA:463,0,jump to line 464,-
+BRDA:463,0,jump to line 471,-
+BRDA:471,0,jump to line 472,-
+BRDA:471,0,jump to line 476,-
+BRDA:486,0,jump to line 487,-
+BRDA:486,0,jump to line 503,-
+BRDA:488,0,jump to line 489,-
+BRDA:488,0,jump to line 493,-
+BRDA:491,0,jump to line 486,-
+BRDA:491,0,jump to line 492,-
+BRDA:493,0,jump to line 486,-
+BRDA:493,0,jump to line 494,-
+BRDA:503,0,jump to line 504,-
+BRDA:503,0,jump to line 523,-
+BRDA:507,0,jump to line 508,-
+BRDA:507,0,jump to line 523,-
+BRDA:509,0,jump to line 510,-
+BRDA:509,0,jump to line 523,-
+BRDA:528,0,jump to line 529,-
+BRDA:528,0,jump to line 530,-
+BRDA:544,0,jump to line 545,-
+BRDA:544,0,jump to line 547,-
+BRDA:559,0,jump to line 560,-
+BRDA:559,0,jump to line 561,-
+BRDA:564,0,jump to line 565,-
+BRDA:564,0,jump to line 566,-
+BRDA:566,0,jump to line 567,-
+BRDA:566,0,jump to line 568,-
+BRDA:568,0,jump to line 569,-
+BRDA:568,0,jump to line 574,-
+BRDA:581,0,jump to line 582,-
+BRDA:581,0,jump to line 583,-
+BRDA:586,0,jump to line 587,-
+BRDA:586,0,jump to line 596,-
+BRDA:588,0,jump to line 589,-
+BRDA:588,0,jump to line 590,-
+BRDA:591,0,jump to line 592,-
+BRDA:591,0,jump to line 593,-
+BRDA:596,0,jump to line 597,-
+BRDA:596,0,return from function '_retry_relations',-
+BRDA:648,0,jump to line 649,-
+BRDA:648,0,jump to line 650,-
+BRDA:655,0,jump to line 656,-
+BRDA:655,0,jump to line 657,-
+BRDA:657,0,jump to line 658,-
+BRDA:657,0,jump to line 659,-
+BRDA:677,0,jump to line 678,-
+BRDA:677,0,jump to line 679,-
+BRDA:684,0,jump to line 685,-
+BRDA:684,0,jump to line 686,-
+BRDA:703,0,jump to line 704,-
+BRDA:703,0,jump to line 705,-
+BRDA:712,0,jump to line 713,-
+BRDA:712,0,jump to line 714,-
+BRDA:732,0,jump to line 733,-
+BRDA:732,0,jump to line 741,-
+BRDA:742,0,jump to line 743,-
+BRDA:742,0,jump to line 750,-
+BRDA:784,0,jump to line 785,-
+BRDA:784,0,jump to line 789,-
+BRF:132
+BRH:0
+end_of_record
+SF:importer\src\processing\agent_prompts.py
+DA:7,1
+DA:9,1
+DA:88,1
+LF:3
+LH:3
+end_of_record
+SF:importer\src\processing\document_processor.py
+DA:1,1
+DA:2,1
+DA:4,1
+DA:6,1
+DA:7,1
+DA:8,1
+DA:9,1
+DA:10,1
+DA:11,1
+DA:12,1
+DA:15,1
+DA:18,1
+DA:19,0
+DA:20,0
+DA:21,0
+DA:22,0
+DA:23,0
+DA:25,1
+DA:27,0
+DA:28,0
+DA:29,0
+DA:30,0
+DA:32,0
+DA:34,0
+DA:35,0
+DA:38,0
+DA:40,0
+DA:41,0
+DA:42,0
+DA:43,0
+DA:44,0
+DA:46,0
+DA:48,0
+DA:50,0
+DA:59,0
+DA:60,0
+DA:63,0
+DA:65,0
+DA:66,0
+DA:67,0
+DA:68,0
+DA:70,0
+DA:72,0
+DA:73,0
+DA:74,0
+DA:75,0
+DA:77,0
+DA:78,0
+DA:82,0
+DA:83,0
+DA:91,1
+DA:93,0
+DA:94,0
+DA:95,0
+DA:97,0
+DA:99,0
+DA:100,0
+DA:101,0
+DA:103,0
+DA:107,0
+DA:108,0
+DA:111,0
+DA:112,0
+DA:115,0
+DA:116,0
+DA:117,0
+DA:124,0
+DA:125,0
+DA:126,0
+DA:129,0
+DA:132,0
+DA:133,0
+DA:138,0
+DA:142,0
+DA:143,0
+DA:147,1
+DA:149,0
+DA:151,1
+DA:153,0
+DA:154,0
+DA:155,0
+DA:157,0
+DA:158,0
+DA:160,1
+DA:162,0
+DA:163,0
+DA:164,0
+DA:166,0
+DA:168,0
+DA:169,0
+DA:170,0
+DA:171,0
+DA:172,0
+DA:174,0
+DA:176,0
+DA:177,0
+DA:178,0
+LF:97
+LH:17
+FN:18,23,DocumentProcessor.__init__
+FNDA:0,DocumentProcessor.__init__
+FN:25,89,DocumentProcessor.prepare_document_work
+FNDA:0,DocumentProcessor.prepare_document_work
+FN:91,145,DocumentProcessor.run_downstream_steps
+FNDA:0,DocumentProcessor.run_downstream_steps
+FN:147,149,DocumentProcessor.finalize_document
+FNDA:0,DocumentProcessor.finalize_document
+FN:151,158,DocumentProcessor.process_document
+FNDA:0,DocumentProcessor.process_document
+FN:160,178,DocumentProcessor.run_main_process
+FNDA:0,DocumentProcessor.run_main_process
+FNF:6
+FNH:0
+BRDA:34,0,jump to line 35,-
+BRDA:34,0,jump to line 40,-
+BRDA:48,0,jump to line 50,-
+BRDA:48,0,jump to line 65,-
+BRDA:59,0,jump to line 60,-
+BRDA:59,0,jump to line 63,-
+BRDA:65,0,jump to line 66,-
+BRDA:65,0,jump to line 70,-
+BRDA:72,0,jump to line 73,-
+BRDA:72,0,jump to line 77,-
+BRDA:99,0,jump to line 100,-
+BRDA:99,0,jump to line 138,-
+BRDA:124,0,jump to line 99,-
+BRDA:124,0,jump to line 125,-
+BRDA:142,0,jump to line 143,-
+BRDA:142,0,return from function 'run_downstream_steps',-
+BRDA:154,0,jump to line 155,-
+BRDA:154,0,jump to line 157,-
+BRDA:166,0,jump to line 168,-
+BRDA:166,0,jump to line 174,-
+BRF:20
+BRH:0
+end_of_record
+SF:importer\src\processing\fallback_strategies.py
+DA:7,1
+DA:9,1
+DA:10,1
+DA:11,1
+DA:13,1
+DA:14,1
+DA:16,1
+DA:26,1
+DA:29,0
+DA:30,0
+DA:31,0
+DA:32,0
+DA:33,0
+DA:34,0
+DA:35,0
+DA:36,0
+DA:37,0
+DA:38,0
+DA:39,0
+DA:40,0
+DA:41,0
+DA:42,0
+DA:43,0
+DA:46,1
+DA:47,0
+DA:48,0
+DA:51,0
+DA:52,0
+DA:53,0
+DA:54,0
+DA:55,0
+DA:56,0
+DA:57,0
+DA:58,0
+DA:61,1
+DA:62,0
+DA:63,0
+DA:64,0
+DA:65,0
+DA:66,0
+DA:67,0
+DA:70,1
+DA:71,0
+DA:72,0
+DA:81,0
+DA:82,0
+DA:83,0
+DA:84,0
+DA:85,0
+DA:86,0
+DA:87,0
+DA:88,0
+DA:89,0
+DA:90,0
+DA:91,0
+DA:92,0
+DA:95,1
+DA:107,0
+DA:108,0
+DA:111,0
+DA:112,0
+DA:113,0
+DA:114,0
+DA:117,0
+DA:119,0
+DA:120,0
+DA:121,0
+DA:122,0
+DA:123,0
+DA:127,0
+DA:128,0
+DA:131,0
+DA:132,0
+DA:136,0
+DA:137,0
+DA:140,0
+DA:142,0
+DA:143,0
+DA:144,0
+DA:147,0
+DA:149,0
+DA:152,0
+DA:156,0
+DA:157,0
+DA:160,0
+DA:161,0
+DA:172,0
+DA:181,0
+DA:182,0
+DA:185,0
+DA:188,0
+DA:191,0
+DA:192,0
+DA:193,0
+DA:197,0
+DA:200,1
+DA:208,0
+DA:209,0
+DA:210,0
+DA:211,0
+DA:212,0
+DA:213,0
+DA:216,0
+DA:217,0
+DA:218,0
+DA:219,0
+DA:222,0
+DA:223,0
+DA:224,0
+DA:225,0
+DA:228,0
+DA:231,0
+DA:232,0
+DA:233,0
+DA:234,0
+DA:235,0
+DA:236,0
+DA:245,0
+DA:246,0
+DA:249,0
+DA:252,0
+DA:253,0
+DA:254,0
+DA:255,0
+LF:124
+LH:13
+FN:26,43,collect_capitalized_entities
+FNDA:0,collect_capitalized_entities
+FN:46,58,guess_entity_type
+FNDA:0,guess_entity_type
+FN:61,67,fallback_entities_from_text
+FNDA:0,fallback_entities_from_text
+FN:70,92,extract_entities_from_ai_content
+FNDA:0,extract_entities_from_ai_content
+FN:95,197,force_minimal_write
+FNDA:0,force_minimal_write
+FN:200,255,generate_tool_calls_from_content
+FNDA:0,generate_tool_calls_from_content
+FNF:6
+FNH:0
+BRDA:31,0,jump to line 32,-
+BRDA:31,0,jump to line 43,-
+BRDA:33,0,jump to line 31,-
+BRDA:33,0,jump to line 34,-
+BRDA:35,0,jump to line 36,-
+BRDA:35,0,jump to line 39,-
+BRDA:37,0,jump to line 38,-
+BRDA:37,0,jump to line 39,-
+BRDA:39,0,jump to line 40,-
+BRDA:39,0,jump to line 41,-
+BRDA:41,0,jump to line 31,-
+BRDA:41,0,jump to line 42,-
+BRDA:48,0,jump to line 51,-
+BRDA:48,0,jump to line 52,-
+BRDA:52,0,jump to line 53,-
+BRDA:52,0,jump to line 54,-
+BRDA:54,0,jump to line 55,-
+BRDA:54,0,jump to line 56,-
+BRDA:56,0,jump to line 57,-
+BRDA:56,0,jump to line 58,-
+BRDA:65,0,jump to line 66,-
+BRDA:65,0,jump to line 67,-
+BRDA:82,0,jump to line 83,-
+BRDA:82,0,jump to line 92,-
+BRDA:87,0,jump to line 82,-
+BRDA:87,0,jump to line 88,-
+BRDA:89,0,jump to line 87,-
+BRDA:89,0,jump to line 90,-
+BRDA:120,0,jump to line 121,-
+BRDA:120,0,jump to line 142,-
+BRDA:123,0,jump to line 127,-
+BRDA:123,0,jump to line 128,-
+BRDA:128,0,jump to line 131,-
+BRDA:128,0,jump to line 132,-
+BRDA:132,0,jump to line 136,-
+BRDA:132,0,jump to line 137,-
+BRDA:142,0,jump to line 143,-
+BRDA:142,0,jump to line 149,-
+BRDA:156,0,jump to line 157,-
+BRDA:156,0,jump to line 188,-
+BRDA:157,0,jump to line 160,-
+BRDA:157,0,jump to line 172,-
+BRDA:181,0,jump to line 182,-
+BRDA:181,0,jump to line 188,-
+BRDA:209,0,jump to line 210,-
+BRDA:209,0,jump to line 211,-
+BRDA:223,0,jump to line 224,-
+BRDA:223,0,jump to line 225,-
+BRDA:232,0,jump to line 233,-
+BRDA:232,0,jump to line 249,-
+BRDA:234,0,jump to line 235,-
+BRDA:234,0,jump to line 236,-
+BRDA:245,0,jump to line 246,-
+BRDA:245,0,jump to line 249,-
+BRF:54
+BRH:0
+end_of_record
+SF:importer\src\processing\state_manager.py
+DA:1,1
+DA:2,1
+DA:3,1
+DA:4,1
+DA:6,1
+DA:7,1
+DA:10,1
+DA:13,1
+DA:14,0
+DA:15,0
+DA:16,0
+DA:18,1
+DA:20,0
+DA:21,0
+DA:22,0
+DA:24,1
+DA:26,0
+DA:27,0
+DA:29,1
+DA:31,0
+DA:33,1
+DA:35,0
+DA:41,1
+DA:43,0
+DA:44,0
+DA:45,0
+DA:46,0
+DA:48,1
+DA:50,0
+DA:51,0
+DA:52,0
+LF:31
+LH:14
+FN:13,16,StateManager.__init__
+FNDA:0,StateManager.__init__
+FN:18,22,StateManager._load_state
+FNDA:0,StateManager._load_state
+FN:24,27,StateManager.save_state
+FNDA:0,StateManager.save_state
+FN:29,31,StateManager.should_process_document
+FNDA:0,StateManager.should_process_document
+FN:33,39,StateManager.is_document_changed
+FNDA:0,StateManager.is_document_changed
+FN:41,46,StateManager.update_document_state
+FNDA:0,StateManager.update_document_state
+FN:48,52,StateManager.advance_last_id
+FNDA:0,StateManager.advance_last_id
+FNF:7
+FNH:0
+BRDA:20,0,jump to line 21,-
+BRDA:20,0,return from function '_load_state',-
+BRF:2
+BRH:0
+end_of_record
+SF:importer\src\services\__init__.py
+DA:3,1
+DA:4,1
+DA:6,1
+LF:3
+LH:3
+end_of_record
+SF:importer\src\services\bootstrap.py
+DA:1,1
+DA:2,1
+DA:3,1
+DA:5,1
+DA:6,1
+DA:8,1
+DA:9,1
+DA:12,1
+DA:15,1
+DA:16,1
+DA:18,0
+DA:19,0
+DA:21,0
+DA:22,0
+DA:23,0
+DA:24,0
+DA:25,0
+DA:26,0
+DA:27,0
+DA:29,0
+DA:31,1
+DA:32,1
+DA:34,0
+DA:35,0
+DA:37,0
+DA:38,0
+DA:39,0
+DA:40,0
+DA:41,0
+DA:42,0
+DA:43,0
+DA:44,0
+DA:46,0
+DA:48,1
+DA:49,1
+DA:51,0
+DA:52,0
+DA:55,0
+DA:56,0
+DA:58,1
+DA:59,1
+DA:61,0
+DA:62,0
+DA:63,0
+DA:64,0
+DA:65,0
+DA:66,0
+LF:47
+LH:16
+FN:16,29,ServiceBootstrapper.wait_for_neo4j
+FNDA:0,ServiceBootstrapper.wait_for_neo4j
+FN:32,46,ServiceBootstrapper.wait_for_http_service
+FNDA:0,ServiceBootstrapper.wait_for_http_service
+FN:49,56,ServiceBootstrapper.resolve_neo4j_host_port
+FNDA:0,ServiceBootstrapper.resolve_neo4j_host_port
+FN:59,66,ServiceBootstrapper.bootstrap_all_services
+FNDA:0,ServiceBootstrapper.bootstrap_all_services
+FNF:4
+FNH:0
+BRDA:21,0,jump to line 22,-
+BRDA:21,0,jump to line 29,-
+BRDA:37,0,jump to line 38,-
+BRDA:37,0,jump to line 46,-
+BRDA:41,0,jump to line 42,-
+BRDA:41,0,jump to line 44,-
+BRDA:51,0,jump to line 52,-
+BRDA:51,0,jump to line 56,-
+BRDA:52,0,jump to line 55,-
+BRDA:52,0,jump to line 56,-
+BRF:10
+BRH:0
+end_of_record
+SF:importer\src\services\scheduler.py
+DA:1,1
+DA:2,1
+DA:4,1
+DA:5,1
+DA:7,1
+DA:10,1
+DA:13,1
+DA:14,0
+DA:15,0
+DA:16,0
+DA:18,1
+DA:20,0
+DA:21,0
+DA:23,0
+DA:24,0
+DA:25,0
+DA:28,0
+DA:30,0
+DA:31,0
+DA:32,0
+DA:34,0
+DA:36,1
+DA:38,0
+DA:39,0
+DA:40,0
+DA:42,0
+DA:43,0
+DA:44,0
+DA:46,0
+DA:48,0
+DA:50,1
+DA:52,0
+DA:54,0
+DA:55,0
+DA:56,0
+DA:58,1
+DA:60,0
+LF:37
+LH:11
+FN:13,16,SchedulerCoordinator.__init__
+FNDA:0,SchedulerCoordinator.__init__
+FN:18,34,SchedulerCoordinator.run_scheduled_job
+FNDA:0,SchedulerCoordinator.run_scheduled_job
+FN:36,48,SchedulerCoordinator.run_initial_process
+FNDA:0,SchedulerCoordinator.run_initial_process
+FN:50,56,SchedulerCoordinator.start_scheduler
+FNDA:0,SchedulerCoordinator.start_scheduler
+FN:58,60,SchedulerCoordinator.request_stop
+FNDA:0,SchedulerCoordinator.request_stop
+FNF:5
+FNH:0
+BRDA:20,0,jump to line 21,-
+BRDA:20,0,jump to line 23,-
+BRDA:24,0,jump to line 25,-
+BRDA:24,0,jump to line 30,-
+BRDA:31,0,jump to line 32,-
+BRDA:31,0,jump to line 34,-
+BRDA:38,0,jump to line 39,-
+BRDA:38,0,jump to line 42,-
+BRDA:42,0,jump to line 43,-
+BRDA:42,0,jump to line 48,-
+BRDA:54,0,jump to line 55,-
+BRDA:54,0,return from function 'start_scheduler',-
+BRF:12
+BRH:0
+end_of_record
+SF:importer\src\utils\__init__.py
+DA:9,1
+DA:10,1
+DA:11,1
+DA:13,1
+LF:4
+LH:4
+end_of_record
+SF:importer\src\utils\json_parser.py
+DA:1,0
+DA:4,0
+DA:7,0
+DA:8,0
+DA:10,0
+DA:12,0
+DA:13,0
+DA:15,0
+DA:16,0
+DA:17,0
+DA:18,0
+DA:20,0
+DA:21,0
+DA:23,0
+DA:24,0
+DA:25,0
+DA:26,0
+DA:27,0
+DA:28,0
+DA:29,0
+DA:30,0
+DA:31,0
+DA:32,0
+DA:33,0
+DA:34,0
+DA:35,0
+DA:36,0
+DA:37,0
+DA:38,0
+DA:40,0
+DA:42,0
+DA:43,0
+DA:45,0
+DA:46,0
+DA:47,0
+DA:48,0
+DA:50,0
+DA:51,0
+DA:53,0
+DA:54,0
+DA:55,0
+DA:56,0
+DA:57,0
+DA:58,0
+DA:59,0
+DA:60,0
+DA:61,0
+DA:62,0
+DA:63,0
+DA:64,0
+DA:65,0
+DA:66,0
+DA:67,0
+DA:68,0
+DA:70,0
+DA:72,0
+DA:73,0
+DA:75,0
+DA:76,0
+DA:78,0
+DA:79,0
+DA:80,0
+DA:81,0
+DA:82,0
+DA:84,0
+DA:86,0
+DA:88,0
+DA:89,0
+DA:91,0
+DA:92,0
+DA:93,0
+DA:94,0
+DA:95,0
+LF:73
+LH:0
+FN:8,10,JSONParser.is_valid_tool_call
+FNDA:0,JSONParser.is_valid_tool_call
+FN:13,40,JSONParser.extract_json_object_at_position
+FNDA:0,JSONParser.extract_json_object_at_position
+FN:43,70,JSONParser.extract_json_array_at_position
+FNDA:0,JSONParser.extract_json_array_at_position
+FN:73,86,JSONParser.iter_json_objects
+FNDA:0,JSONParser.iter_json_objects
+FN:89,95,JSONParser.find_top_level_array
+FNDA:0,JSONParser.find_top_level_array
+FNF:5
+FNH:0
+BRDA:20,0,jump to line 21,-
+BRDA:20,0,jump to line 40,-
+BRDA:23,0,jump to line 24,-
+BRDA:23,0,jump to line 30,-
+BRDA:24,0,jump to line 25,-
+BRDA:24,0,jump to line 26,-
+BRDA:26,0,jump to line 27,-
+BRDA:26,0,jump to line 28,-
+BRDA:28,0,jump to line 29,-
+BRDA:28,0,jump to line 38,-
+BRDA:30,0,jump to line 31,-
+BRDA:30,0,jump to line 32,-
+BRDA:32,0,jump to line 33,-
+BRDA:32,0,jump to line 36,-
+BRDA:33,0,jump to line 34,-
+BRDA:33,0,jump to line 35,-
+BRDA:36,0,jump to line 37,-
+BRDA:36,0,jump to line 38,-
+BRDA:50,0,jump to line 51,-
+BRDA:50,0,jump to line 70,-
+BRDA:53,0,jump to line 54,-
+BRDA:53,0,jump to line 60,-
+BRDA:54,0,jump to line 55,-
+BRDA:54,0,jump to line 56,-
+BRDA:56,0,jump to line 57,-
+BRDA:56,0,jump to line 58,-
+BRDA:58,0,jump to line 59,-
+BRDA:58,0,jump to line 68,-
+BRDA:60,0,jump to line 61,-
+BRDA:60,0,jump to line 62,-
+BRDA:62,0,jump to line 63,-
+BRDA:62,0,jump to line 66,-
+BRDA:63,0,jump to line 64,-
+BRDA:63,0,jump to line 65,-
+BRDA:66,0,jump to line 67,-
+BRDA:66,0,jump to line 68,-
+BRDA:78,0,jump to line 79,-
+BRDA:78,0,return from function 'iter_json_objects',-
+BRDA:79,0,jump to line 80,-
+BRDA:79,0,jump to line 86,-
+BRDA:80,0,jump to line 81,-
+BRDA:80,0,jump to line 84,-
+BRDA:91,0,jump to line 92,-
+BRDA:91,0,jump to line 95,-
+BRDA:92,0,jump to line 91,-
+BRDA:92,0,jump to line 93,-
+BRDA:93,0,jump to line 91,-
+BRDA:93,0,jump to line 94,-
+BRF:48
+BRH:0
+end_of_record
+SF:importer\src\utils\json_utils.py
+DA:14,1
+DA:16,1
+DA:17,1
+DA:18,1
+DA:25,1
+DA:28,1
+DA:29,1
+DA:36,1
+DA:40,0
+DA:41,0
+DA:42,0
+DA:43,0
+DA:46,1
+DA:52,0
+DA:53,0
+DA:54,0
+DA:55,0
+DA:56,0
+DA:57,0
+DA:60,1
+DA:62,0
+DA:63,0
+DA:65,0
+DA:66,0
+DA:67,0
+DA:68,0
+DA:69,0
+DA:70,0
+DA:73,1
+DA:74,0
+DA:77,1
+DA:83,0
+DA:84,0
+DA:85,0
+DA:86,0
+DA:87,0
+DA:89,0
+DA:90,0
+DA:91,0
+DA:92,0
+DA:93,0
+DA:94,0
+DA:95,0
+DA:96,0
+DA:97,0
+DA:98,0
+DA:99,0
+DA:100,0
+DA:101,0
+DA:102,0
+DA:103,0
+DA:104,0
+DA:105,0
+DA:106,0
+DA:107,0
+DA:108,0
+DA:109,0
+DA:112,0
+DA:114,0
+DA:115,0
+DA:118,1
+DA:130,0
+DA:131,0
+DA:132,0
+DA:133,0
+DA:134,0
+DA:135,0
+DA:136,0
+DA:137,0
+DA:138,0
+DA:139,0
+DA:141,0
+DA:142,0
+DA:143,0
+DA:144,0
+DA:145,0
+DA:148,0
+DA:151,1
+LF:78
+LH:14
+FN:30,33,_JSONLoads.__call__
+FNDA:0,_JSONLoads.__call__
+FN:36,43,_get_orjson_loader
+FNDA:0,_get_orjson_loader
+FN:46,57,safe_loads
+FNDA:0,safe_loads
+FN:60,70,_strip_code_fences
+FNDA:0,_strip_code_fences
+FN:73,74,_normalize_quotes
+FNDA:0,_normalize_quotes
+FN:77,115,find_json_substring
+FNDA:0,find_json_substring
+FN:118,148,extract_first_json
+FNDA:0,extract_first_json
+FNF:7
+FNH:0
+BRDA:41,0,jump to line 42,-
+BRDA:41,0,jump to line 43,-
+BRDA:55,0,jump to line 56,-
+BRDA:55,0,jump to line 57,-
+BRDA:63,0,jump to line 65,-
+BRDA:63,0,jump to line 70,-
+BRDA:65,0,jump to line 66,-
+BRDA:65,0,jump to line 69,-
+BRDA:67,0,jump to line 65,-
+BRDA:67,0,jump to line 68,-
+BRDA:89,0,jump to line 90,-
+BRDA:89,0,jump to line 115,-
+BRDA:90,0,jump to line 91,-
+BRDA:90,0,jump to line 98,-
+BRDA:91,0,jump to line 92,-
+BRDA:91,0,jump to line 93,-
+BRDA:93,0,jump to line 94,-
+BRDA:93,0,jump to line 95,-
+BRDA:95,0,jump to line 96,-
+BRDA:95,0,jump to line 97,-
+BRDA:98,0,jump to line 99,-
+BRDA:98,0,jump to line 101,-
+BRDA:101,0,jump to line 102,-
+BRDA:101,0,jump to line 105,-
+BRDA:105,0,jump to line 106,-
+BRDA:105,0,jump to line 108,-
+BRDA:108,0,jump to line 89,-
+BRDA:108,0,jump to line 109,-
+BRDA:112,0,jump to line 89,-
+BRDA:112,0,jump to line 114,-
+BRDA:130,0,jump to line 131,-
+BRDA:130,0,jump to line 132,-
+BRDA:134,0,jump to line 135,-
+BRDA:134,0,jump to line 136,-
+BRDA:138,0,jump to line 139,-
+BRDA:138,0,jump to line 141,-
+BRDA:141,0,jump to line 142,-
+BRDA:141,0,jump to line 143,-
+BRDA:143,0,jump to line 144,-
+BRDA:143,0,jump to line 148,-
+BRF:42
+BRH:2
+end_of_record
+SF:importer\src\utils\text_utils.py
+DA:1,1
+DA:2,1
+DA:3,1
+DA:4,1
+DA:7,1
+DA:10,1
+DA:11,1
+DA:13,0
+DA:14,0
+DA:15,0
+DA:17,1
+DA:18,1
+DA:20,0
+DA:21,0
+DA:22,0
+DA:23,0
+DA:24,0
+DA:25,0
+DA:26,0
+DA:27,0
+DA:29,1
+DA:30,1
+DA:32,0
+DA:33,0
+DA:34,0
+LF:25
+LH:11
+FN:11,15,TextUtils.strip_code_fences
+FNDA:0,TextUtils.strip_code_fences
+FN:18,27,TextUtils.truncate_text
+FNDA:0,TextUtils.truncate_text
+FN:30,38,TextUtils.chunk_text
+FNDA:0,TextUtils.chunk_text
+FNF:3
+FNH:0
+BRDA:13,0,jump to line 14,-
+BRDA:13,0,jump to line 15,-
+BRDA:24,0,jump to line 25,-
+BRDA:24,0,jump to line 26,-
+BRDA:32,0,jump to line 33,-
+BRDA:32,0,jump to line 34,-
+BRF:6
+BRH:0
+end_of_record
+SF:importer\src\utils\tool_call_extractor.py
+DA:1,1
+DA:2,1
+LF:2
+LH:2
+FN:14,15,ToolCallExtractor._is_valid_tool_call
+FNDA:0,ToolCallExtractor._is_valid_tool_call
+FN:18,26,ToolCallExtractor.extract_tool_calls
+FNDA:0,ToolCallExtractor.extract_tool_calls
+FNF:2
+FNH:0
+end_of_record
+SF:importer\src\utils\tool_call_normalizer.py
+DA:1,1
+DA:4,1
+DA:7,1
+DA:8,1
+DA:10,0
+DA:12,1
+DA:13,1
+DA:15,0
+DA:16,0
+DA:17,0
+DA:18,0
+DA:20,0
+DA:21,0
+DA:22,0
+DA:23,0
+DA:25,0
+DA:26,0
+DA:27,0
+DA:28,0
+DA:29,0
+DA:31,1
+DA:32,1
+DA:34,0
+DA:37,0
+DA:38,0
+DA:39,0
+DA:40,0
+DA:41,0
+DA:42,0
+DA:44,0
+DA:45,0
+DA:46,0
+DA:48,1
+DA:49,1
+DA:51,0
+DA:53,0
+DA:55,0
+DA:56,0
+DA:57,0
+DA:59,0
+DA:65,0
+DA:66,0
+DA:67,0
+DA:69,1
+DA:70,1
+DA:72,0
+DA:75,0
+DA:81,0
+DA:82,0
+DA:83,0
+DA:86,0
+DA:87,0
+DA:88,0
+DA:90,0
+DA:92,0
+DA:94,1
+DA:95,1
+DA:97,0
+DA:98,0
+DA:100,0
+DA:101,0
+DA:103,0
+DA:104,0
+DA:105,0
+DA:107,0
+DA:109,1
+DA:110,1
+DA:112,0
+DA:113,0
+DA:114,0
+DA:115,0
+DA:116,0
+DA:118,1
+DA:119,1
+DA:121,0
+DA:122,0
+DA:124,0
+DA:125,0
+DA:126,0
+DA:128,1
+DA:129,1
+DA:131,0
+DA:133,0
+DA:134,0
+DA:136,0
+DA:137,0
+DA:139,0
+DA:141,1
+DA:142,1
+DA:144,0
+DA:145,0
+DA:147,0
+DA:148,0
+DA:150,0
+DA:151,0
+DA:152,0
+DA:154,0
+DA:155,0
+DA:156,0
+DA:160,0
+DA:162,0
+DA:164,1
+DA:165,1
+DA:167,0
+DA:168,0
+DA:169,0
+DA:171,0
+DA:172,0
+DA:174,1
+DA:175,1
+DA:177,0
+DA:178,0
+DA:184,0
+DA:185,0
+DA:186,0
+DA:188,1
+DA:189,1
+DA:191,0
+DA:197,0
+DA:198,0
+LF:120
+LH:28
+FN:8,10,ToolCallNormalizer.extract_name
+FNDA:0,ToolCallNormalizer.extract_name
+FN:13,29,ToolCallNormalizer.extract_relation_entity_names
+FNDA:0,ToolCallNormalizer.extract_relation_entity_names
+FN:32,46,ToolCallNormalizer.normalize_single_relation
+FNDA:0,ToolCallNormalizer.normalize_single_relation
+FN:49,67,ToolCallNormalizer.normalize_relations_params
+FNDA:0,ToolCallNormalizer.normalize_relations_params
+FN:70,92,ToolCallNormalizer.normalize_observation
+FNDA:0,ToolCallNormalizer.normalize_observation
+FN:95,107,ToolCallNormalizer.extract_observations_list
+FNDA:0,ToolCallNormalizer.extract_observations_list
+FN:110,116,ToolCallNormalizer.build_observations_list
+FNDA:0,ToolCallNormalizer.build_observations_list
+FN:119,126,ToolCallNormalizer.normalize_observations_params
+FNDA:0,ToolCallNormalizer.normalize_observations_params
+FN:129,139,ToolCallNormalizer.normalize_single_entity
+FNDA:0,ToolCallNormalizer.normalize_single_entity
+FN:142,162,ToolCallNormalizer.extract_entities_from_params
+FNDA:0,ToolCallNormalizer.extract_entities_from_params
+FN:165,172,ToolCallNormalizer.has_valid_observations
+FNDA:0,ToolCallNormalizer.has_valid_observations
+FN:175,186,ToolCallNormalizer.normalize_entities_params
+FNDA:0,ToolCallNormalizer.normalize_entities_params
+FN:189,198,ToolCallNormalizer.normalize_params
+FNDA:0,ToolCallNormalizer.normalize_params
+FNF:13
+FNH:0
+BRDA:16,0,jump to line 17,-
+BRDA:16,0,jump to line 29,-
+BRDA:20,0,jump to line 21,-
+BRDA:20,0,jump to line 22,-
+BRDA:22,0,jump to line 23,-
+BRDA:22,0,jump to line 25,-
+BRDA:25,0,jump to line 26,-
+BRDA:25,0,jump to line 27,-
+BRDA:27,0,jump to line 28,-
+BRDA:27,0,jump to line 29,-
+BRDA:37,0,jump to line 38,-
+BRDA:37,0,jump to line 39,-
+BRDA:39,0,jump to line 40,-
+BRDA:39,0,jump to line 41,-
+BRDA:41,0,jump to line 42,-
+BRDA:41,0,jump to line 44,-
+BRDA:53,0,jump to line 55,-
+BRDA:53,0,jump to line 59,-
+BRDA:56,0,jump to line 57,-
+BRDA:56,0,jump to line 59,-
+BRDA:81,0,jump to line 82,-
+BRDA:81,0,jump to line 86,-
+BRDA:82,0,jump to line 81,-
+BRDA:82,0,jump to line 83,-
+BRDA:86,0,jump to line 87,-
+BRDA:86,0,jump to line 92,-
+BRDA:87,0,jump to line 88,-
+BRDA:87,0,jump to line 90,-
+BRDA:97,0,jump to line 98,-
+BRDA:97,0,jump to line 100,-
+BRDA:100,0,jump to line 101,-
+BRDA:100,0,jump to line 103,-
+BRDA:103,0,jump to line 104,-
+BRDA:103,0,jump to line 107,-
+BRDA:112,0,jump to line 113,-
+BRDA:112,0,jump to line 114,-
+BRDA:114,0,jump to line 115,-
+BRDA:114,0,jump to line 116,-
+BRDA:133,0,jump to line 134,-
+BRDA:133,0,jump to line 136,-
+BRDA:136,0,jump to line 137,-
+BRDA:136,0,jump to line 139,-
+BRDA:144,0,jump to line 145,-
+BRDA:144,0,jump to line 147,-
+BRDA:147,0,jump to line 148,-
+BRDA:147,0,jump to line 150,-
+BRDA:150,0,jump to line 151,-
+BRDA:150,0,jump to line 154,-
+BRDA:154,0,jump to line 155,-
+BRDA:154,0,jump to line 162,-
+BRDA:168,0,jump to line 169,-
+BRDA:168,0,jump to line 171,-
+BRF:52
+BRH:0
+end_of_record

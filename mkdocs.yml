@@ -48,17 +48,10 @@ markdown_extensions:
 plugins:
   - search:
       separator: '[\\s\\-]+'
-      prebuild_index: true
       lang: en
       pipeline:
         - stemmer
         - stopWordFilter
-      scoring:
-        term_frequency: 2
-        field_boost:
-          title: 5
-          content: 1
-          tags: 3
   # Removed mermaid2 plugin; using native Mermaid JS via custom fence
   - mkdocstrings:
       handlers:
@@ -76,7 +69,7 @@ nav:
   - Architecture:
     - Orchestrator: agent_orchestrator.md
     - Scheduler: scheduler.md
-    - README: ../README.md
+    - Repo Overview: root-readme.md
   - API Reference:
     - Config: api/config.md
     - Models: api/models.md
@@ -85,7 +78,7 @@ nav:
     - Processing: api/processing.md
     - Services: api/services.md
   - ADRs:
-    - ADR Index: adr/README.md
+    - ADR Index: adr/index.md
     - ADR 0001 Orchestrator Refactor: adr/0001-orchestrator-refactor.md
 
 extra:

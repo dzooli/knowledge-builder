@@ -1,0 +1,22 @@
+[run]
+branch = True
+source = importer/src
+omit = 
+    */__pycache__/*
+    */tests/*
+    */.venv/*
+
+[report]
+show_missing = True
+skip_covered = False
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.: 
+    raise NotImplementedError
+
+[xml]
+output = coverage.xml
+
+[paths]
+source =
+    importer/src

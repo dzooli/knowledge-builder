@@ -15,6 +15,7 @@ Thanks for your interest in improving Knowledge Builder!
 uv sync --dev
 uv run pytest -q
 uv run mkdocs serve  # optional docs preview
+uv run pre-commit install  # install git hooks (monolith guard, etc.)
 ```
 
 ## Code Standards
@@ -24,6 +25,7 @@ uv run mkdocs serve  # optional docs preview
 * Prefer helper abstractions over duplication.
 * Use Pydantic models or slotted dataclasses for structured data.
 * Logging via `loguru` only; include meaningful context.
+* Pre-commit monolith guard blocks adding Python modules > 800 lines (excluding tests & special cases). Adjust thresholds in `scripts/monolith_guard.py` if justified.
 
 ## Architecture Docs & ADRs
 
@@ -57,7 +59,7 @@ uv run mkdocs serve  # optional docs preview
 
 ## Commit Messages
 
-* Conventional style helpful but not enforced: `feat:`,  `fix:`,  `docs:`,  `refactor:`, etc.
+* Conventional style helpful but not enforced: `feat:`,   `fix:`,   `docs:`,   `refactor:`, etc.
 
 ## Pull Requests
 
