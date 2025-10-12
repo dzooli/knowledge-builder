@@ -1163,11 +1163,13 @@
 <li>Relation retry failures are warnings, not fatal.</li>
 </ul>
 <h2 id="testability">Testability<a class="headerlink" href="#testability" title="Permanent link">&para;</a></h2>
-<p>Tests rely on:
-* Presence of <code>_run_with_timeout</code> symbol for monkey‑patching.
-* Deterministic evidence naming scheme.
-* Stable ordering of tool execution (observations → entities → other → relations) enforced in <code>agent_execution.order_tool_calls</code>.
-* Heuristic functions exported from <code>fallback_strategies</code> for direct unit coverage.</p>
+<p>Tests rely on:</p>
+<ul>
+<li>Presence of <code>_run_with_timeout</code> symbol for monkey‑patching.</li>
+<li>Deterministic evidence naming scheme.</li>
+<li>Stable ordering of tool execution (observations → entities → other → relations) enforced in <code>agent_execution.order_tool_calls</code>.</li>
+<li>Heuristic functions exported from <code>fallback_strategies</code> for direct unit coverage.</li>
+</ul>
 <h2 id="data-naming-conventions-current">Data &amp; Naming Conventions (Current)<a class="headerlink" href="#data-naming-conventions-current" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Evidence node name: <code>Evidence &lt;SOURCE_ID&gt;-&lt;CHUNK_ID&gt;</code></li>
