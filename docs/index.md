@@ -1,6 +1,6 @@
 # Knowledge Builder Docs
 
-Welcome to the developer documentation site generated with MkDocs Material.
+This project is WIP, contributors are welcome.
 
 ## High-Level Flow
 
