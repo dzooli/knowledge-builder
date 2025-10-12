@@ -124,7 +124,12 @@ __pypackages__/
 [Ll]ib
 [Ll]ib64
 [Ll]ocal
-[Ss]cripts
+# NOTE: Previously ignoring generic '[Ss]cripts' directory caused the project's 'scripts/' folder
+# with source utilities & tests to be ignored. Narrow this rule to common virtualenv locations.
+# If you have a Windows venv outside .venv adjust accordingly.
+.venv/[Ss]cripts/
+env/[Ss]cripts/
+venv/[Ss]cripts/
 pyvenv.cfg
 .venv
 pip-selfcheck.json

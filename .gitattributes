@@ -1,0 +1,56 @@
+# Enforce consistent line endings and diff/merge behaviors
+
+# Default to text with LF
+* text=auto eol=lf
+
+# Windows-specific script types may keep CRLF if desired
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Preserve executable scripts (no extension) as LF
+scripts/* text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.7z binary
+*.jar binary
+*.db binary
+*.sqlite3 binary
+*.ipynb binary
+
+# Lock files treated as text but normalized
+uv.lock text eol=lf
+
+# Markdown & documentation
+*.md text eol=lf
+*.rst text eol=lf
+
+# Config & data
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+
+# Python
+*.py text eol=lf
+*.pyi text eol=lf
+
+# Shell scripts
+*.sh text eol=lf
+
+# Makefile
+Makefile text eol=lf
+
+# Mermaid / diagrams
+*.mmd text eol=lf
+
+# Ignore line ending normalization for already committed binaries
