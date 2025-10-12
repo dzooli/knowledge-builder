@@ -366,3 +366,4 @@ bootstrap/*
 !bootstrap/.gitkeep
 
 .env.*.local!/bootstrap/get_token.py
+/.vscode/settings.json
