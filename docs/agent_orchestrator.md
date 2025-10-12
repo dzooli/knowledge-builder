@@ -99,6 +99,7 @@ flowchart LR
 ## Testability
 
 Tests rely on:
+
 * Presence of `_run_with_timeout` symbol for monkey‑patching.
 * Deterministic evidence naming scheme.
 * Stable ordering of tool execution (observations → entities → other → relations) enforced in `agent_execution.order_tool_calls`.
