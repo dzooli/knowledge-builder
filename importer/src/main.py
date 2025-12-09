@@ -15,7 +15,7 @@ def setup_logging():
     with contextlib.suppress(Exception):
         Path(Config.LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
 
-    logger.add(
+    _ = logger.add(
         Config.LOG_FILE,
         rotation="10 MB",
         retention="10 days",
